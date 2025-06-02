@@ -1,0 +1,26 @@
+### First attempt to analyze and plot the data of JRC: Maximum Daily Global Open Ocean Water Level from LISCOAST
+
+
+## Import libraries and preparation
+import xarray as xr
+import numpy as np
+import glob
+import os
+import netCDF4
+from netCDF4 import Dataset
+
+! pip install netCDF4
+
+## Import data of Maximum Daily Global Open Ocean Water Level from LISCOAST (JRC)
+# Import data from working directory
+file_paths = sorted(glob.glob(r"C:/Users/aless/Desktop/dati_tesi/globalDailyMaxWaterLevel/VER2024-05-03/*.nc"))
+data_list = []
+#ds = Dataset(file_paths[0])
+#print(ds)  # info sul file
+
+for fp in file_paths:
+    ds = Dataset(fp)
+    var = ds.variables['waterLevelreanalysis'][:]  
+    data_list.append(var)
+    ds.close()
+print(ds)

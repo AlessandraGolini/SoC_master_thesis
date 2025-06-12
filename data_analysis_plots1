@@ -1,0 +1,69 @@
+
+## Plots
+# (SCATTERPLOT ONLY FOR THE FIRST TIMESTEP - NO)
+# Extracting a single time slice (e.g., the first one)
+temp = keta_ds['waterLevelreanalysis'].isel(time_1959_2021=0)
+
+# Get the coordinates
+lons = keta_ds['longitudeSAT'].values
+lats = keta_ds['latitudeSAT'].values
+print(min(lats), max(lats))
+
+# Plot temperature over spatial coordinates
+plt.figure(figsize=(12,8))
+ax = plt.axes(projection=ccrs.PlateCarree())
+
+# Add map features
+ax.coastlines(resolution='10m')
+ax.add_feature(cfeature.BORDERS, linestyle=':')
+ax.add_feature(cfeature.LAND, edgecolor='black')
+ax.add_feature(cfeature.OCEAN)
+ax.gridlines(draw_labels=True)
+
+# Plot data points
+sc = ax.scatter(lons, lats, c=temp, cmap='coolwarm', s=40, transform=ccrs.PlateCarree())
+plt.colorbar(sc, ax=ax, orientation='vertical', label='Water Level ($10^{-4}$ m)')
+plt.title('Water Level at first time step')
+plt.show()
+
+# HEXBIN REPRESENTATION FOR THE FIRST TIMESTEP - NO
+plt.figure(figsize=(10, 6))
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.coastlines()
+ax.gridlines(draw_labels=True)
+
+hb = ax.hexbin(lons, lats, C=kvalues, gridsize=40, cmap='viridis', transform=ccrs.PlateCarree())
+
+plt.colorbar(hb, label='Water Level ($10^{-4}$ m)')
+plt.title('Hexbin Representation of Water Level at first timestep, Keta Basin (Ghana)')
+plt.show()
+
+
+# INTERPOLATED MAP FOR FIRST TIMESTEP OF WL
+# First try for a Map of water Level reanalysis  
+keta_array = keta_ds['waterLevelreanalysis'].isel(time_1959_2021=0)
+kvalues = keta_array.values.flatten()
+
+# Get the coordinates
+lon_grid = np.linspace(min(lons), max(lons), 100)
+lat_grid = np.linspace(min(lats), max(lats), 100)
+lon_mesh, lat_mesh = np.meshgrid(lon_grid, lat_grid)
+
+data_grid = griddata((lons, lats), kvalues, (lon_mesh, lat_mesh), method='linear')
+
+# Plot water level over spatial coordinates
+plt.figure(figsize=(12,8))
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.coastlines()
+ax.coastlines(resolution='10m')
+ax.add_feature(cfeature.BORDERS, linestyle=':')
+ax.add_feature(cfeature.LAND, edgecolor='black')
+ax.gridlines(draw_labels=True)
+
+contour = ax.contourf(lon_mesh, lat_mesh, data_grid, levels=20, cmap='coolwarm', transform=ccrs.PlateCarree())
+
+plt.colorbar(contour, ax=ax, orientation='vertical', label='Water Level ($10^{-4}$ m)')
+plt.title('Interpolated Water Level Field at first timestep, Keta BAsin (Ghana)')
+plt.show()
+
+

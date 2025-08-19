@@ -1,0 +1,671 @@
+# Compound Flooding Analysis 
+
+**Objective:** Quantify the relationship between river discharge and offshore water level extremes at the Volta River Estuary to assess compound flooding potential.
+
+**Study Area:**
+- Volta River Estuary, Ghana
+- Estuary bounds: lat [5.73, 5.83]°, lon [0.64, 0.75]°
+- Context bounds for maps: lat [3, 9]°, lon [−3, 3]°
+- Reference points: at the mouth river (0.667E  5.77N) and at the Volta Lake (0.117E, 6.5N)
+
+**Datasets:**
+- **GloFAS v4.0**: Daily river discharge in the last 24h (`dis24`), units m³/s, October 2010–2024.
+- **JRC Maximum Daily Global Open Ocean Water Level**: Offshore daily maximum WL, units 10⁻⁴ m, 1959–2021.
+
+**Approach:**
+Following Hendry et al. (2019):
+1. Pair river and coastal points.
+2. Extract extreme events (POT, decluster).
+3. Quantify joint occurrences and dependence.
+
+# Import libraries
+import os
+import xarray as xr
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.cm import get_cmap
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import geopandas as gpd
+import osmnx as ox
+
+import glob
+from netCDF4 import Dataset
+from scipy.interpolate import griddata
+import pandas as pd
+from dataclasses import dataclass
+from scipy import stats
+from scipy.stats import norm, multivariate_normal, kendalltau, spearmanr
+
+
+
+
+# Study Area
+# Define bounds for the Volta River Estuary Area
+lat_min, lat_max = 5.73, 5.83
+lon_min, lon_max = 0.64, 0.75
+
+# Full map bounds
+full_lat_min, full_lat_max = 3, 9
+full_lon_min, full_lon_max = -3, 3
+# Create figure and axis with PlateCarree projection
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(30, 12), subplot_kw={'projection': ccrs.PlateCarree()})
+
+# First panel: Broad focus Area
+ax[0].set_extent([full_lon_min, full_lon_max, full_lat_min, full_lat_max])
+ax[0].coastlines(resolution='10m')  # Dettagli costieri
+ax[0].add_feature(cfeature.BORDERS, linestyle='-', linewidth=1.5)
+ax[0].add_feature(cfeature.LAND, edgecolor='black')
+ax[0].add_feature(cfeature.RIVERS)
+ax[0].add_feature(cfeature.LAKES, alpha=0.5)
+ax[0].add_feature(cfeature.OCEAN)
+gl0 = ax[0].gridlines(draw_labels=True)
+gl0.top_labels = False
+gl0.right_labels = False
+gl0.xlabel_style = {'fontsize': 18}
+gl0.ylabel_style = {'fontsize': 18}
+gl0.xformatter = LONGITUDE_FORMATTER
+gl0.yformatter = LATITUDE_FORMATTER
+ax[0].set_title('Study area - the Keta Basin', fontsize=30)
+
+# Add rectangle for Keta Estuary subset
+from matplotlib.patches import Rectangle
+
+# Add patch (box)
+rect = Rectangle((lon_min, lat_min), lon_max - lon_min, lat_max - lat_min,
+                 linewidth=2, edgecolor='red', facecolor='none', transform=ccrs.PlateCarree())
+ax[0].add_patch(rect)
+ax[0].text(lon_min, lat_max - 0.3, 'Volta Estuary', color='red',
+        fontsize=20, transform=ccrs.PlateCarree())
+
+
+# Second panel: detail over the Volta River Estuary 
+ax[1].set_extent([0, 1.5, 5, 6.5])
+ax[1].coastlines(resolution='10m')  # Dettagli costieri
+ax[1].add_feature(cfeature.BORDERS, linestyle='-', linewidth=1.5)
+ax[1].add_feature(cfeature.LAND, edgecolor='black')
+ax[1].add_feature(cfeature.RIVERS)
+ax[1].add_feature(cfeature.LAKES, alpha=0.5)
+ax[1].add_feature(cfeature.OCEAN)
+gl1 = ax[1].gridlines(draw_labels=True)
+gl1.top_labels = False
+gl1.right_labels = False
+gl1.xlabel_style = {'fontsize': 18}
+gl1.ylabel_style = {'fontsize': 18}
+gl1.xformatter = LONGITUDE_FORMATTER
+gl1.yformatter = LATITUDE_FORMATTER
+ax[1].set_title('Study area - Volta River Estuary Area', fontsize=30)
+
+rect2 = Rectangle((lon_min, lat_min), lon_max - lon_min, lat_max - lat_min,
+                  linewidth=2, edgecolor='red', facecolor='none', transform=ccrs.PlateCarree())
+ax[1].add_patch(rect2)
+ax[1].text(lon_min, lat_max + 0.05, 'Volta Estuary', color='red',
+        fontsize=20, transform=ccrs.PlateCarree())
+
+
+plt.show()
+For further analysis, it will be take into account a single point, located at the Volta River Mouth (5.77°N e 0.667°E), and an aditional point further upstream, at Volta Lake (6.50°N, 0.117°E).
+
+lon_estuary = 0.667
+lat_estuary = 5.77;
+lon_lake = 0.117
+lat_lake = 6.50
+# La mappa base
+plt.figure(figsize=(6,5))
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.set_extent([0, 1.5, 5, 6.7])
+ax.coastlines(resolution='10m')
+ax.add_feature(cfeature.LAND, edgecolor='black')
+ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.5)
+ax.add_feature(cfeature.RIVERS)
+ax.add_feature(cfeature.LAKES, alpha=0.5)
+ax.add_feature(cfeature.OCEAN)
+gl = ax.gridlines(draw_labels=True)
+gl.right_labels = False
+gl.top_labels = False
+
+# Add red points 
+lon_estuary = 0.667
+lat_estuary = 5.77
+lon_lake = 0.117
+lat_lake = 6.50
+
+plt.plot(lon_estuary, lat_estuary, marker='o', color='red', markersize=5)
+ax.text(lon_estuary -0.15, lat_estuary - 0.1, 'Volta Estuary reference point', color='red',
+        fontsize=10, transform=ccrs.PlateCarree())
+plt.plot(lon_lake, lat_lake, marker='o', color='red', markersize=5)
+ax.text(lon_lake + 0.03, lat_lake - 0.1, 'Volta Lake reference point', color='red',
+        fontsize=10, transform=ccrs.PlateCarree())
+
+
+plt.title('Volta River Estuary')
+plt.show()
+# Load data
+
+
+## GLOFAS data
+The dataset is a GRIB2 file, containing the **daily values of River discharge in the last 24 hours [m^3 s^-1]** for the month of October in the period 2010-2024 in the region between [3,9]°N and [-3,3]°E.
+
+The River Discharge is defined as the volume rate of water flow, including sediments, chemical and biological material, in the river channel averaged over a time step through a cross-section. The value is an average over a 24-hour period.
+
+* 15 years of data (2010–2024)
+* 31 days in October × 15 years = 465 days
+* A variable dis24  representing the daily discharge 
+* Dimensions: (time, latitude, longitude)
+# Working directory
+os.chdir("C:/Users/aless/Desktop/dati_tesi/glofas_keta")
+
+# Opne file GRIB
+keta_rd = xr.open_dataset("data.grib", engine="cfgrib")
+
+# Visualize dataset
+print(keta_rd)
+# Extract raw (daily) values to the point closest to the two points
+dis_mouth = keta_rd['dis24'].sel(latitude = lat_estuary, longitude = lon_estuary, method='nearest')
+dis_lake = keta_rd['dis24'].sel(latitude = lat_lake, longitude = lon_lake, method='nearest')
+
+# confirm where we actually landed
+sel_mouth_lat = float(dis_mouth.latitude.values)
+sel_mouth_lon = float(dis_mouth.longitude.values)
+sel_lake_lat  = float(dis_lake.latitude.values)
+sel_lake_lon  = float(dis_lake.longitude.values)
+print("Mouth grid cell:",  sel_mouth_lat, sel_mouth_lon)
+print("Lake grid cell:",   sel_lake_lat,  sel_lake_lon)
+
+## Water Level Data
+The “Maximum Daily Global Open Ocean Water Level” dataset (JRC) provides a daily time series of offshore maximum water level reconstructed with a statistical PCVAR model. It combines:
+* DUACS altimetry sea-level anomalies (sparse satellite observations), and
+* ERA5 atmospheric predictors (10-m winds, mean sea-level pressure, pressure gradients),
+
+to produce a continuous daily record even where satellites didn’t pass on a given day.
+
+The key variable is  `waterLevelreanalysis(pointsSAT, time_1959_2021)`, whichi is an open-ocean daily maximum water level signal: captures meteorology such as storm surges and cyclones plus background variability. The units of this daily maximum offshore water level is 10⁻⁴ m (to be converted in m by multiplying by 1e-4).
+
+# Import data from working directory
+data_dir = r"C:/Users/aless/Desktop/dati_tesi/globalDailyMaxWaterLevel/VER2024-05-03"
+file_paths = sorted(glob.glob(os.path.join(data_dir, "*.nc")))
+
+# Checking for the presence and validity of files in the working directory
+valid_files = []
+invalid_files = []
+
+for filepath in file_paths:
+    if os.path.isfile(filepath) and filepath.endswith(".nc"):
+        try:
+            ds = Dataset(filepath)
+            ds.close()
+            valid_files.append(filepath)
+        except:
+            invalid_files.append(filepath)
+    else:
+        invalid_files.append(filepath)
+print(f"✅ Valid NetCDF files: {len(valid_files)}")
+print(f"❌ Unreadable NetCDF files: {len(invalid_files)}")
+
+if invalid_files:
+    print("Examples of invalid files:")
+    for f in invalid_files[:5]:
+        print(" -", f)
+Explore data structure
+sample_ds = Dataset(valid_files[0])
+print("Dataset Info:")
+print(sample_ds)
+
+print("Variables:")
+print(sample_ds.variables.keys())
+
+water_var = sample_ds.variables['waterLevelreanalysis'][:]  
+print(f"Water Level shape: {water_var.shape}")
+print(f"Time variable:", sample_ds['time_1959_2021'])
+
+sample_ds.close()
+
+sample_xr = xr.open_dataset(valid_files[0])
+print(sample_xr)
+print(sample_xr.coords)
+print(sample_xr.dims)
+print(sample_xr['waterLevelreanalysis'].attrs)
+
+# Check coordinate ranges
+longs = sample_xr.longitudeSAT.values
+lats = sample_xr.latitudeSAT.values
+print("Longitude range:", longs.min(), "→", longs.max())
+print("Latitude range:", lats.min(), "→", lats.max())
+print("Unique longitudes:", np.unique(np.round(longs, 3)))
+print("Unique latitudes:", np.unique(np.round(lats, 3)))
+### Data selection for areas of interest
+# Search for files including points in the longitude range [-3°, +4°], that is the Keta Basin, Ghana
+target_files = []
+
+for f in file_paths:
+    with xr.open_dataset(f) as ds:
+        lons = ds["longitudeSAT"].values
+        if ((lons >= full_lon_min) & (lons <= full_lon_max)).any():
+            target_files.append(f)
+
+print(f"Found {len(target_files)} files containing Keta Basin longitudes")  
+print("Target files:", target_files)          
+# Open and concatenate datasets
+def load_and_filter(file):
+    ds = xr.open_dataset(file)
+    mask_lon = (ds.longitudeSAT >= full_lon_min) & (ds.longitudeSAT <= full_lon_max)
+    mask_lat = (ds.latitudeSAT >= full_lat_min) & (ds.latitudeSAT <= full_lat_max)
+    mask = mask_lon & mask_lat
+    ds = ds.sel(pointsSAT=mask)
+    return ds
+
+# Apply filtering and merge
+filtered_keta = [load_and_filter(f) for f in target_files]
+filtered_keta = [ds for ds in filtered_keta if ds.dims["pointsSAT"] > 0]
+
+if len(filtered_keta) == 0:
+    raise ValueError("❌ No datasets found within the target region. Check coordinate ranges.")
+else:
+    keta_wl = xr.concat(filtered_keta, dim="pointsSAT")
+
+print("Longitude range:", float(keta_wl.longitudeSAT.min()), "to", float(keta_wl.longitudeSAT.max()))
+print("Latitude range:", float(keta_wl.latitudeSAT.min()), "to", float(keta_wl.latitudeSAT.max()))
+keta_wl
+Conversion to meters
+# convert to meters (x 1e-4)
+v = keta_wl['waterLevelreanalysis']
+
+# respect any fill value if present
+fill = v.attrs.get('_FillValue', v.encoding.get('_FillValue', None))
+if fill is not None:
+    v = v.where(v != fill)
+
+# lazy multiply; preserves dask if present
+wl_m = (v * 1e-4).assign_attrs({
+    **{k: v.attrs[k] for k in v.attrs if k != 'units'},
+    'units': 'm',
+    'long_name': 'daily maximum offshore water level (meters)',
+    'note': 'converted from 1e-4 m by multiplying by 1e-4'
+})
+keta_wl = keta_wl.assign(waterLevel_m=wl_m)
+
+# Overwrite the original variables
+keta_wl['waterLevelreanalysis'] = keta_wl['waterLevelreanalysis'] * 1e-4
+keta_wl['waterLevelreanalysis'].attrs['units'] = 'm'
+keta_wl['waterLevelreanalysis'].attrs['note']  = 'converted from 1e-4 m'
+keta_wl = keta_wl.rename({'time_1959_2021': 'time'})
+
+Selection of the offshore point nearest to the estuary
+# Filter the period 2010-2021 and select only October
+sel_keta_wl = keta_wl.sel(time=slice("2010-01-01", "2021-12-31"))
+keta_wl_oct = sel_keta_wl.isel(time = sel_keta_wl.time.dt.month == 10)
+
+# Nearest open-ocean point to the river mouth
+wl_mouth = keta_wl_oct['waterLevelreanalysis'].isel(pointsSAT=ip).to_series().sort_index()
+keta_wl_oct
+## Align the daily series (Oct 2010-2021)
+# River discharge at mouth (already October only)
+rd = dis_mouth.to_series() # river discharge (m³/s) @ mouth
+rd.index = pd.to_datetime(rd.index)
+
+# Water level at offshore point nearest the estuary
+wl = wl_mouth.copy() # water level (m) offshore, already a Series
+wl.index = pd.to_datetime(wl.index)
+
+# intersect dates and drop any NaNs
+idx = rd.index.intersection(wl.index)
+rd = rd.reindex(idx).dropna()
+wl = wl.reindex(idx).dropna()
+
+print("Daily samples kept:", len(rd), "| period:",
+      rd.index.min().date(), "→", rd.index.max().date())
+# River Discharge
+keta_rd # River daily discharge for Octobers days 2010-2024 (dataset)
+rd # series of daily river discharge for October days 2010-2021
+## Raw data time seires
+
+# We look at the timeseries of River Discharge at the esutary of the Volta river (5.77°N 0.667°E) and at the Volta Lake (6.50N, 0.117E)
+
+# Plot
+fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(12, 8), sharex=True)
+
+ax1.plot(dis_mouth.time, dis_mouth, linestyle='-', marker='.')
+ax1.set_title("Raw time series - Discharge of Volta River Mouth in October (2010-2024)")
+ax1.set_ylabel("Discharge (m³/s)")  
+ax1.set_xlabel("Year")
+ax1.grid(True)
+
+ax2.plot(dis_lake.time, dis_lake, linestyle='-', marker='.', color='purple')
+ax2.set_title("Raw time series - Discharge of Volta Lake in October (2010-2024)")
+ax2.set_ylabel("Discharge (m³/s)")  
+ax2.set_xlabel("Year")
+ax2.grid(True)
+
+plt.tight_layout()
+plt.show()
+fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 8), sharex=True)
+ax1.scatter(dis_mouth['time'].values, dis_mouth.values, s=10, color='royalblue', alpha=0.7)
+ax1.set_title("Scatterplot - Daily Discharge at River Mouth in October (2010-2024)")
+ax1.set_xlabel("Year")
+ax1.set_ylabel("Discharge (m³/s)") 
+ax1.grid(True)
+ax2.scatter(dis_lake['time'].values, dis_lake.values, s=10, color='purple', alpha=0.7)
+ax2.set_title("Scatterplot - Daily Discharge at Volta Lake in October (2010-2024)")
+ax2.set_xlabel("Year")
+ax2.set_ylabel("Discharge (m³/s)") 
+ax2.grid(True)
+plt.tight_layout()
+plt.show()
+## Climatology and anomalies
+# Compute the climatology
+mouth_climo = keta_rd.mean(dim='time')
+
+# Plot 2D
+plt.figure(figsize=(8,6))
+ax = plt.axes(projection=ccrs.PlateCarree())
+#ax.set_extent([0, 1.5, 5, 6.5])
+ax.coastlines(resolution='10m')
+ax.add_feature(cfeature.LAND, edgecolor='black')
+ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.5)
+im = mouth_climo['dis24'].plot(
+    ax=ax,
+    cmap='Blues',
+    cbar_kwargs={"label": "Mean river discharge (m³/s)"})
+gl1 = ax.gridlines(draw_labels=True, color='lightgray', linewidth=0.7, linestyle='--')
+gl1.top_labels = False
+gl1.right_labels = False
+gl1.xlabel_style = {'fontsize': 10}
+gl1.ylabel_style = {'fontsize': 10}
+gl1.xformatter = LONGITUDE_FORMATTER
+gl1.yformatter = LATITUDE_FORMATTER
+plt.title('October Climatology - Mean discharge (2010-2024)')
+
+# Add red point (lon=0.667, lat=5.77)
+plt.plot(lon_estuary, lat_estuary, marker='o', color='red', markersize=5)
+ax.text(lon_estuary -0.3, lat_estuary - 0.3, 'Volta Estuary reference point', color='red',
+        fontsize=10, transform=ccrs.PlateCarree())
+plt.plot(lon_lake, lat_lake, marker='o', color='red', markersize=5)
+ax.text(lon_lake + 0.1, lat_lake - 0.1, 'Volta Lake reference point', color='red',
+        fontsize=10, transform=ccrs.PlateCarree())
+
+plt.show()
+# Climatology in the Estuary
+mouth_clim = dis_mouth.groupby('time.day').mean('time')
+
+plt.figure(figsize=(10, 4))
+plt.plot(mouth_clim['day'].values, mouth_clim.values, marker='o')
+plt.title("October climatology – Daily Mean 2010-2024")
+plt.xlabel("Day of October")
+plt.ylabel("Discharge (m³/s)")
+plt.xticks(range(1, 32))
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+# Climatology in the Lake
+lake_clim = dis_lake.groupby('time.day').mean('time')
+
+plt.figure(figsize=(10, 4))
+plt.plot(lake_clim['day'].values, lake_clim.values, marker='o', color='purple')
+plt.title("October Lake climatology – Daily Mean 2010-2024")
+plt.xlabel("Day of October")
+plt.ylabel("Discharge (m³/s)")
+plt.xticks(range(1, 32))
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+River discharge in October over the years
+years = np.unique(dis_mouth['time'].dt.year)
+
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(12, 10), sharex=True)
+
+cmap = get_cmap('tab20')  
+colors = [cmap(i) for i in range(len(years))]
+
+# --- First subplot: Volta River Estuary ---
+ax = axes[0]
+for i, year in enumerate(years):
+    y_data = dis_mouth.sel(time=dis_mouth['time'].dt.year == year)
+    days = y_data['time'].dt.day
+    ax.plot(days, y_data.values, label=str(year), color=colors[i])
+
+ax.plot(range(1, 32), mouth_clim.values, color='black', linewidth=2.5, label='Long-term mean')
+
+ax.set_title("River Discharge in October – Volta River Estuary")
+ax.set_ylabel("River Discharge (m³/s)")
+ax.set_xticks(range(1, 32))
+ax.grid(True)
+ax.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    borderaxespad=0,
+    fontsize=8,
+    ncol=1,  
+    title="Year"
+)
+
+# --- Second subplot: Volta Lake ---
+ax = axes[1]
+for i, year in enumerate(years):
+    y_lake_data = dis_lake.sel(time=dis_lake['time'].dt.year == year)
+    l_days = y_lake_data['time'].dt.day
+    ax.plot(l_days, y_lake_data.values, label=str(year), color=colors[i])
+
+ax.plot(range(1, 32), lake_clim.values, color='black', linewidth=2.5, label='Long-term mean')
+
+ax.set_title("River Discharge in October – Volta Lake")
+ax.set_xlabel("Day of October")
+ax.set_ylabel("River Discharge (m³/s)")
+ax.set_xticks(range(1, 32))
+ax.grid(True)
+ax.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    borderaxespad=0,
+    fontsize=8,
+    ncol=1,  
+    title="Year"
+)
+
+plt.tight_layout()
+plt.show()
+Anomaly
+
+# Anomaly
+mouth_anom = dis_mouth.groupby(dis_mouth['time'].dt.day) - mouth_clim
+
+# Plot
+plt.figure(figsize=(12,4))
+plt.scatter(dis_mouth['time'], mouth_anom, s=10, color='crimson', alpha=0.7)
+plt.axhline(0, color='black', linestyle='--')
+plt.title("Daily River Discharge Anomaly in the Volta Estuary - October")
+plt.xlabel("Year")
+plt.ylabel("River Discharge Anomaly (m³/s)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+Focus on the exceptional years: 2018-2019-2020-2022
+# Anomaly for October 2019
+oct_2019 = dis_mouth.sel(time=slice('2019-10-01', '2019-10-31'))
+mouth_anom19 = oct_2019.groupby('time.day') - mouth_clim
+
+# Ploto
+plt.figure(figsize=(10,4))
+plt.bar(mouth_anom19['time'].dt.day, mouth_anom19.values, color='red', alpha=0.8)
+plt.axhline(0, color='black', linestyle='--')
+plt.title("River Discharge Anomaly in the Volta Estuary Area - October 2019")
+plt.xlabel("Day of October")
+plt.ylabel("River Discharge Anomaly (m³/s)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+# Anomaly for October 2020
+oct_2020 = dis_mouth.sel(time=slice('2020-10-01', '2020-10-31'))
+
+mouth_anom20 = oct_2020.groupby('time.day') - mouth_clim
+
+# Ploto
+plt.figure(figsize=(10,4))
+plt.bar(mouth_anom20['time'].dt.day, mouth_anom20.values, color='magenta', alpha=0.8)
+plt.axhline(0, color='black', linestyle='--')
+plt.title("River Discharge Anomaly in the Volta Estuary Area - October 2020")
+plt.xlabel("Day of October")
+plt.ylabel("River Discharge Anomaly (m³/s)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+# Water Level
+keta_wl = daily water level values from 1959 to 2021
+
+sel_keta_wl = selection of daily water level from 2010 to 2021
+
+keta_wl_oct = selection of october daily water level from 2010 to 2021
+
+wl_climo = october climatology 2010-2021
+
+wl_month = selection of october daily water level from 2010 to 2021 at the Volta River Estuary reference point
+
+estuary_wl_clim = daily climatology in october of water level from 2010 to 2021 at the Volta River Estuary reference point
+
+
+
+keta_wl_oct # dataset of daily water level for october days 2010-2021 (m)
+wl, wl_mouth #series of daily water level for october days 2010-2021 (m)
+## Raw data timeseries at Volta Estuary
+# We look at the timeseries of River Discharge at the esutary of the Volta river (5.77°N 0.667°E) and at the Volta Lake (6.50N, 0.117E)
+
+# Compute Euclidean distances and find closest indices
+dist_estuary = np.sqrt((lat_vals - lat_estuary)**2 + (lon_vals - lon_estuary)**2)
+idx_estuary = dist_estuary.argmin()
+
+# Extract time series for Estuary point (in October)
+wl_month = keta_wl_oct['waterLevelreanalysis'].isel(pointsSAT=idx_estuary)
+
+# Time axis
+time = keta_wl_oct['time'].values
+
+# Plot both time series
+fig, ax = plt.subplots(figsize=(12, 8), sharex=True)
+
+# Estuary plot
+ax.plot(time, wl_month, linestyle='-', marker='.')
+ax.set_title("October Water Level - Volta Estuary (2010–2021)")
+ax.set_ylabel("Water Level (m)")
+ax.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+fig, ax = plt.subplots(figsize=(12, 8), sharex=True)
+ax.scatter(time, wl_month,s=10, color='royalblue', alpha=0.7)
+ax.set_title("Scatterplot - Daily Water Level at River Mouth in October (2010-2024)")
+ax.set_xlabel("Year")
+ax.set_ylabel("Water Level (m)") 
+ax.grid(True)
+## Climatology and anomalies
+# Calculate the climatological average for October
+wl_climo = keta_wl_oct['waterLevelreanalysis'].mean(dim='time')
+
+# Extract raw NumPy arrays from xarray.DataArray
+lon_vals = keta_wl['longitudeSAT'].values
+lat_vals = keta_wl['latitudeSAT'].values
+wl_oct_vals = wl_climo.values
+
+# regular grid
+lon2d, lat2d = np.meshgrid(
+    np.linspace(lon_vals.min(), lon_vals.max(), 100),
+    np.linspace(lat_vals.min(), lat_vals.max(), 100)
+)
+
+# Interpolate
+from scipy.interpolate import griddata
+grid_z = griddata((lon_vals, lat_vals), wl_oct_vals, (lon2d, lat2d), method='linear')
+
+# Plot
+plt.figure(figsize=(10, 7))
+ax = plt.axes(projection=ccrs.PlateCarree())
+ax.coastlines(resolution='10m')
+ax.add_feature(cfeature.LAND, edgecolor='black')
+ax.add_feature(cfeature.BORDERS, linestyle='-', linewidth=0.5)
+ax.add_feature(cfeature.RIVERS)
+ax.add_feature(cfeature.LAKES, alpha=0.5)
+
+cf = ax.contourf(lon2d, lat2d, grid_z, cmap='Blues', levels=20, transform=ccrs.PlateCarree())
+plt.colorbar(cf, label='October mean water level (m)')
+
+# Griglia e formattazione
+gl = ax.gridlines(draw_labels=True, color='lightgray', linewidth=0.7, linestyle='--')
+gl.top_labels = False
+gl.right_labels = False
+gl.xlabel_style = {'fontsize': 10}
+gl.ylabel_style = {'fontsize': 10}
+gl.xformatter = LONGITUDE_FORMATTER
+gl.yformatter = LATITUDE_FORMATTER
+
+# Punti di riferimento
+plt.plot(lon_estuary, lat_estuary, marker='o', color='red', markersize=5)
+ax.text(lon_estuary - 1.7, lat_estuary + 0.2, 'Volta Estuary reference point',
+        color='red', fontsize=10, transform=ccrs.PlateCarree())
+
+
+plt.title("October Climatology - Mean Water Level (2010–2021)")
+plt.tight_layout()
+plt.show()
+## October daily climatology and anomalies
+# Climatology in the Estuary
+estuary_wl_clim = wl_month.groupby('time.day').mean('time')
+
+
+plt.figure(figsize=(10, 4))
+plt.plot(estuary_wl_clim['day'].values, estuary_wl_clim.values, marker='o')
+plt.title("October climatology – Daily Mean 2010-2024")
+plt.xlabel("Day of October")
+plt.ylabel("Water Level (m)")
+plt.xticks(range(1, 32))
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+years = np.unique(wl_month['time'].dt.year)
+
+plt.figure(figsize=(12, 5))
+
+cmap = get_cmap('tab20')  
+colors = [cmap(i) for i in range(len(years))]
+
+# Lines for each year
+for i, year in enumerate(years):
+    y_data = wl_month.sel(time=wl_month['time'].dt.year == year)
+    days = y_data['time'].dt.day
+    plt.plot(days, y_data.values, label=str(year), color=colors[i])
+
+# Climatology
+plt.plot(range(1, 32), estuary_wl_clim.values, color='black', linewidth=2.5, label='Long-term mean')
+
+# Title and axes
+plt.title("Water Level in October – Volta River Estuary")
+plt.xlabel("Day of October")
+plt.ylabel("Water level (m)")
+plt.xticks(range(1, 32))
+plt.grid(True)
+
+# Legend
+plt.legend(
+    bbox_to_anchor=(1.05, 1),
+    loc='upper left',
+    borderaxespad=0,
+    fontsize=8,
+    ncol=1,  
+    title="Year"
+)
+
+plt.tight_layout()
+plt.show()
+# Anomaly
+wl_anom = wl_month.groupby(wl_month['time'].dt.day) - estuary_wl_clim
+
+# Plot
+plt.figure(figsize=(12,4))
+plt.scatter(wl_month['time'], wl_anom, s=10, color='crimson', alpha=0.7)
+plt.axhline(0, color='black', linestyle='--')
+plt.title("Daily Water Level Anomaly in the Volta Estuary - October")
+plt.xlabel("Year")
+plt.ylabel("Water level anomaly (m)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()

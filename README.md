@@ -22,6 +22,6 @@ Following Hendry et al. (2019):
 3. Quantify joint occurrences and dependence.
 
 ## In this repo:
-+ the script of the compound flooding analysis in the Keta Basin
++ In the "script" folder: the code for the compound flooding analysis in the Keta Basin
 + (updating) drafts of some parts of the thesis document
 

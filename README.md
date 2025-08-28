@@ -1,7 +1,14 @@
 # Master thesis project
 
-## Compound Flooding Analysis 
+## In this repo:
++ In the "script" folder:
+  + the code for the compound flooding analysis in the Keta Basin.
++ In the "main results" folder:
+  + the results obtained from the analysis are birefly described and discussed.
++ In the "document" folder:
+  + uptdating drafts of the thesis document are saved.
 
+## Compound Flooding Analysis 
 **Objective:** Quantify the relationship between river discharge and offshore water level extremes at the Volta River Estuary, in the Keta Basin (Ghana), to assess compound flooding potential.
 
 **Study Area:**
@@ -14,18 +21,10 @@
 - **GloFAS v4.0**: provided by the CEMS Early Warning Data Store, the GloFAS dataset contains the **daily river discharge in the last 24 hours [m³ s⁻¹]** (`dis24`) for the period 2010–2021. 
 - **JRC Maximum Daily Global Open Ocean Water Level**: the “Maximum Daily Global Open Ocean Water Level” dataset (JRC) provides a daily time series of offshore maximum water level reconstructed with a statistical PCVAR model. It combines: DUACS altimetry sea-level anomalies (sparse satellite observations), and ERA5 atmospheric predictors (10-m winds, mean sea-level pressure, pressure gradients), to produce a continuous daily record even where satellites didn’t pass on a given day. The key variable is  `waterLevelreanalysis(pointsSAT, time_1959_2021)`, whichi is an open-ocean daily maximum water level signal. The units of this daily maximum offshore water level is 10⁻⁴ m (to be converted in m by multiplying by 1e-4).
 
-
 **Approach:**
 Following Hendry et al. (2019):
 1. Pair river and coastal points.
 2. Extract extreme events (POT, decluster).
 3. Quantify joint occurrences and dependence.
 
-## In this repo:
-+ In the "script" folder:
-  + the code for the compound flooding analysis in the Keta Basin.
-+ In the "main results" folder:
-  + the results obtained from the analysis are birefly described and discussed.
-+ In the "document" folder:
-  + uptdating drafts of the thesis document are saved.
 

@@ -1,6 +1,6 @@
 ##### Time variability #####
 
-### River Discharge ###
+#### River Discharge ####
 nodata = 9999.0  # GloFAS missing value
   # mask nodata first
 glofas_masked = glofas_sorted.where(glofas_sorted.dis24 != nodata)
@@ -137,3 +137,531 @@ ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize
 plt.tight_layout()
 plt.show()
 
+## RD anomaly
+## Anomaly without detrending
+  # get unique years from anomalies
+years = np.unique(rdE_anom['time.year'].values)
+  # add one extra year so the grid reaches the end of the plot
+years_ext = np.append(years, years[-1] + 1)
+year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
+# --------------------------------------
+# Monthly river discharge anomaly
+# --------------------------------------
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(13, 9), sharex=True)
+  # --- Estuary ---
+ax1.plot(rdE_anom['time'], rdE_anom.values, color='r', linewidth=1)
+ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)  # baseline
+ax1.set_title("River Discharge Monthly Anomaly at the Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Anomaly (m³/s)")
+ax1.set_xticks(year_ticks)
+ax1.set_xticklabels(years_ext)  # show all year numbers including the last
+ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+  # --- Volta Lake ---
+ax2.plot(rdL_anom['time'], rdL_anom.values, color='r', linewidth=1)
+ax2.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax2.set_title("River Discharge Monthly Anomaly at Volta Lake (0.117°E, 6.50°N)")
+ax2.set_ylabel("Anomaly (m³/s)")
+ax2.set_xlabel("Year")
+ax2.set_xticks(year_ticks)
+ax2.set_xticklabels(years_ext)
+ax2.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+
+plt.tight_layout()
+plt.show()
+
+# River Discharge Anomalies for Autumn months
+sel_months = [9, 10, 11, 12]  
+colors = ["r", "g", "b", "orange"]  
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 8), sharex=True)
+  # --- Estuary ---
+for i, m in enumerate(sel_months):
+    dataE = rdE_anom.sel(time=rdE_anom['time.month'] == m)
+    ax1.plot(dataE['time'], dataE, color=colors[i], lw=1.2, label=months[m-1])
+ax1.axhline(0, color="k", lw=0.8, alpha=0.6)
+ax1.set_title("River Discharge Anomalies - Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Discharge Anomaly (m³/s)")
+ax1.set_xticks(year_ticks)
+ax1.set_xticklabels(years_ext)
+ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend(title="Month")
+  # --- Lake ---
+for i, m in enumerate(sel_months):
+    dataL = rdL_anom.sel(time=rdL_anom['time.month'] == m)
+    ax2.plot(dataL['time'], dataL, color=colors[i], lw=1.2, label=months[m-1])
+ax2.axhline(0, color="k", lw=0.8, alpha=0.6)
+ax2.set_title("River Discharge Anomalies - Lake (0.117°E, 6.50°N)")
+ax2.set_ylabel("Discharge Anomaly (m³/s)")
+ax2.set_xlabel("Year")
+ax2.set_xticks(year_ticks)
+ax2.set_xticklabels(years_ext)
+ax2.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax2.legend(title="Month")
+
+plt.tight_layout()
+plt.show()
+
+# Detrended anomaly
+# ---------- CONFIGURATION ----------
+baseline = ('2010-01-01','2021-12-31')
+series = [
+    ("Volta River at the Mouth", rd_estuary),
+    ("Volta Lake",              rd_lake),
+]
+
+# ---------- PIPELINE ----------
+def prep_series(xarr, baseline=baseline, deg=1, resample='MS'):
+    """Compute detrended monthly anomalies, climatology, and fitted trend."""
+    rd_danom, rd_dclim, rd_trend = anomd(xarr, baseline=baseline, deg=deg)
+    rd_danom_m = rd_danom.resample(time=resample).mean()
+    return {"raw": xarr, "rd_danom_m": rd_danom_m, "rd_dclim": rd_dclim, "rd_trend": rd_trend}
+
+def plot_raw_with_trend(name, raw, rd_trend):
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(raw['time'], raw, linewidth=1, label="Raw")
+    ax.plot(rd_trend['time'], rd_trend, linewidth=2, label="Trend")
+    ax.set_title(f"{name} — Raw Discharge with Fitted Trend")
+    ax.set_ylabel("Discharge (m³/s)"); ax.set_xlabel("Year")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    ax.legend()
+    plt.tight_layout(); plt.show()
+
+def plot_anomaly(name, rd_danom_m):
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.axhline(0, linewidth=1)
+    ax.plot(rd_danom_m['time'], rd_danom_m, linewidth=1, color = 'r')
+    ax.set_title(f"{name} — Detrended Monthly Anomaly")
+    ax.set_ylabel("Anomaly (m³/s)"); ax.set_xlabel("Year")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    plt.tight_layout(); plt.show()
+
+def plot_climatology(name, rd_dclim):
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(rd_dclim['month'], rd_dclim, marker='o')
+    ax.set_title(f"{name} — Monthly Climatology (Detrended Base)")
+    ax.set_xticks(range(1,13))
+    ax.set_xticklabels([month_abbr[m] for m in range(1, 13)])
+    ax.set_xlabel("Month"); ax.set_ylabel("Discharge (m³/s)")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    plt.tight_layout(); plt.show()
+
+# ---------- RUN FOR ALL SERIES ----------
+results = {name: prep_series(xarr, baseline=baseline) for name, xarr in series}
+
+for name, r in results.items():
+    plot_raw_with_trend(name, r["raw"], r["rd_trend"])
+    plot_anomaly(name, r["rd_danom_m"])
+    plot_climatology(name, r["rd_dclim"])
+
+rdE_danom_m = results["Volta River at the Mouth"]["rd_danom_m"]   # DataArray (time)
+rdE_dclim   = results["Volta River at the Mouth"]["rd_dclim"]     # DataArray (month)
+rdE_trend   = results["Volta River at the Mouth"]["rd_trend"]
+rdE_raw     = results["Volta River at the Mouth"]["raw"]
+
+rdL_danom_m = results["Volta Lake"]["rd_danom_m"]
+rdL_dclim   = results["Volta Lake"]["rd_dclim"]
+rdL_trend   = results["Volta Lake"]["rd_trend"]
+rdL_raw     = results["Volta Lake"]["raw"]
+
+
+
+#### Water Level ####
+## Temporal variability of the 'raw' climatic index 
+# Timeseries of Water Level at the two reference points
+  # Plot
+fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
+ax1.plot(wl_estuary.time, wl_estuary, linestyle='-', label = 'Daily WL')
+  # Monthly mean values at the two locations (E = estuary, L = lake)
+wl_mon = wl_estuary.resample(time='MS').mean()   # 'MS' = Month Start
+ax1.plot(wl_mon.time, wl_mon, linestyle = '-', color = 'r', label = 'Monthly mean')
+ax1.set_title("Raw time series - Water Level at Volta Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Water level (m)")  
+ax1.set_xlabel("Year")
+ax1.grid(True)
+ax1.legend()
+  # vertical lines: one per month
+ax1.grid(True, axis='x', which='major', alpha=0.5)
+  # a few horizontal lines (major only)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+plt.show()
+
+# --------------------------------------
+# Monthly climatology of water level
+# --------------------------------------
+months = list(calendar.month_name)[1:]
+fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
+ax1.plot(wl_clim['month'].values, wl_clim.values, marker='o', label = 'Mean 2010-2021')
+ax1.set_title("Monthly Water Level Climatology at the estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Water level (m)")
+ax1.set_xlabel("Month", labelpad=8)
+ax1.set_xticks(range(1, 13))
+ax1.set_xticklabels(months)
+  # vertical lines: one per month
+ax1.grid(True, axis='x', which='major', alpha=0.5)
+  # a few horizontal lines (major only)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend(loc='upper right', frameon=False)
+
+plt.tight_layout()
+plt.show()
+
+# --------------------------------------
+# Monthly mean water level
+# --------------------------------------
+years = sorted(set(rd_estuary['time'].dt.year.values))
+fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
+cmap = plt.get_cmap('tab20')
+colors = [cmap(i % cmap.N) for i in range(len(years))]
+
+for i, (y1, yy1) in enumerate(wl_mon.groupby('time.year')):
+    # yy is the monthly series for that year (up to 12 points)
+    ax1.plot(yy1['time.month'].values, yy1.values, label=str(y1), color=colors[i])
+ax1.plot(wl_clim['month'], wl_clim.values, color='black', label='Climatology', linewidth=2)
+ax1.set_title("Sea Water Level at the estuary (0.667°E, 5.77°N) - Monthly mean")
+ax1.set_ylabel("Water level (m)")
+ax1.set_xlabel("Month", labelpad=8)
+ax1.set_xticks(range(1, 13))
+ax1.set_xticklabels(months)
+ax1.set_xlim(1, 12)
+ax1.set_axisbelow(True)
+ax1.grid(True, axis='x', which='major', alpha=0.5)             
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=8, ncol=1, title="Year")
+
+plt.tight_layout()
+plt.show()
+
+# --------------------------------------
+# Monthly water level anomaly
+# --------------------------------------
+  # get unique years from anomalies
+years = np.unique(wl_anom['time.year'].values)
+  # add one extra year so the grid reaches the end of the plot
+years_ext = np.append(years, years[-1] + 1)
+year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
+fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
+  # --- Estuary ---
+ax1.plot(wl_anom['time'], wl_anom.values, color='r', linewidth=1)
+ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)  # baseline
+ax1.set_title("Water Level Monthly Anomaly at the Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Anomaly (m)")
+ax1.set_xticks(year_ticks)
+ax1.set_xticklabels(years_ext)  # show all year numbers including the last
+ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+
+plt.show()
+
+# Water level anomalies for Autumn months
+sel_months = [9, 10, 11, 12]  
+colors = ["r", "g", "b", "orange"]  
+fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
+# --- Estuary ---
+for i, m in enumerate(sel_months):
+    dataE = wl_anom.sel(time=wl_anom['time.month'] == m)
+    ax1.plot(dataE['time'], dataE, color=colors[i], lw=1.2, label=months[m-1])
+ax1.axhline(0, color="k", lw=0.8, alpha=0.6)
+ax1.set_title("Water level Anomalies - Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Water level Anomaly (m³/s)")
+ax1.set_xticks(year_ticks)
+ax1.set_xticklabels(years_ext)
+ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend(title="Month")
+
+plt.tight_layout()
+plt.show()
+
+# Detrended anomaly
+# Estuary
+We_anom, We_clim = anom(wl_estuary, baseline=('2010-01-01','2021-12-31'))
+We_anom_d, We_clim, We_trend = anomd(wl_estuary, baseline=('2010-01-01','2021-12-31')) # detrended anomaly
+We_anom_m = We_anom_d.resample(time='MS').mean()   # monthly-mean anomaly from daily
+
+# ---------- CONFIGURATION ----------
+baseline = ('2010-01-01','2021-12-31')
+series = [
+    ("Water Level at the River Mouth", wl_estuary)
+]
+
+# ---------- PIPELINE ----------
+def prep_series(xarr, baseline=baseline, deg=1, resample='MS'):
+    """Compute detrended monthly anomalies, climatology, and fitted trend."""
+    wl_danom, wl_dclim, wl_trend = anomd(xarr, baseline=baseline, deg=deg)
+    wl_danom_m = wl_danom.resample(time=resample).mean()
+    return {"raw": xarr, "wl_danom_m": wl_danom_m, "wl_dclim": wl_dclim, "wl_trend": wl_trend}
+
+def plot_raw_with_trend(name, raw, wl_trend):
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(raw['time'], raw, linewidth=1, label="Raw daily series")
+    ax.plot(wl_mon['time'], wl_mon, color = 'r', label = 'Monthly mean')
+    ax.plot(wl_trend['time'], wl_trend, linewidth=2, label="Trend")
+    ax.set_title(f"{name} — Raw Discharge with Fitted Trend")
+    ax.set_ylabel("Water level (m)"); ax.set_xlabel("Year")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    ax.legend()
+    plt.tight_layout(); plt.show()
+
+def plot_anomaly(name, wl_danom_m):
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.axhline(0, linewidth=1)
+    ax.plot(wl_danom_m['time'], wl_danom_m, linewidth=1, color = 'r')
+    ax.set_title(f"{name} — Detrended Monthly Anomaly")
+    ax.set_ylabel("Anomaly (m)"); ax.set_xlabel("Year")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    plt.tight_layout(); plt.show()
+
+def plot_climatology(name, clim):
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(clim['month'], clim, marker='o')
+    ax.set_title(f"{name} — Monthly Climatology (Detrended Base)")
+    ax.set_xticks(range(1,13))
+    ax.set_xticklabels([month_abbr[m] for m in range(1, 13)])
+    ax.set_xlabel("Month"); ax.set_ylabel("Water level (m)")
+    ax.grid(True, which='major', linestyle='--', alpha=0.4)
+    plt.tight_layout(); plt.show()
+
+# ---------- RUN FOR ALL SERIES ----------
+results = {name: prep_series(xarr, baseline=baseline) for name, xarr in series}
+
+for name, r in results.items():
+    plot_raw_with_trend(name, r["raw"], r["wl_trend"])
+    plot_anomaly(name, r["wl_danom_m"])
+    plot_climatology(name, r["wl_dclim"])
+
+wl_danom = results[name]["wl_danom_m"]
+wl_dclim   = results[name]["wl_dclim"] 
+
+
+
+### Power spectrum ###
+def fft_spectrum_xr(da: xr.DataArray, pad_factor=4, window='hann'):
+    """
+    One-sided FFT spectrum for a 1D DataArray with a 'time' coord.
+    Returns period (years), amplitude (units), PSD (units^2 / cycles·yr^-1).
+    """
+    da = da.dropna('time')
+    x = da.values.astype(float)
+    t = da['time'].values
+
+    # samples per year from median step
+    dt_days = np.median(np.diff(t).astype('timedelta64[D]').astype(float))
+    fs = 365.2425 / dt_days  # samples/year (≈12 for monthly, ≈365 for daily)
+
+    # de-mean + window
+    N = len(x)
+    x = x - np.mean(x)
+    w = np.hanning(N) if window == 'hann' else np.ones(N)
+    U = (w**2).mean()
+
+    # zero-padding for a finer grid
+    Nfft = 2**int(np.ceil(np.log2(pad_factor*N)))
+    X = np.fft.rfft(x * w, n=Nfft)
+    f = np.fft.rfftfreq(Nfft, d=1/fs)          # cycles/year
+
+    # one-sided amplitude and PSD (Parseval-consistent)
+    A = 2*np.abs(X)/N
+    P = (np.abs(X)**2) / (fs * N * U)
+    if N > 1:
+        P[1:-1] *= 2.0
+
+    m = f > 0
+    period = 1.0 / f[m]
+    return period, A[m], P[m]
+
+# ----- compute -----
+per_rd, A_rd, PSD_rd = fft_spectrum_xr(rd_estuary)
+per_wl, A_wl, PSD_wl = fft_spectrum_xr(wl_estuary)
+
+# ----- plot (amplitude; swap A_* -> PSD_* and change ylabel if you prefer PSD) -----
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+
+ax1.plot(per_rd, A_rd, '-', label='RD FFT')
+ax1.set_ylabel('Amplitude (m³/s)')
+ax1.set_title('River Discharge — FFT spectrum'); ax1.grid(True)
+
+ax2.plot(per_wl, A_wl, '-', color='b', label='WL FFT')
+ax2.set_xlabel('Period (years)')
+ax2.set_ylabel('Amplitude (m)')
+ax2.set_title('Water Level — FFT spectrum'); ax2.grid(True)
+
+# helpful guides
+for ax in (ax1, ax2):
+    ax.set_xlim(0, 15)                     # focus on <= 10 years (adjust if needed)
+    for T in (0.5, 1, 2): ax.axvline(T, ls='--', alpha=0.3)
+
+plt.tight_layout(); plt.show()
+
+
+### PDF ###
+# Compute and plot the histograms to see the PDF of the rd and wl raw indeces
+rdv = rd.dropna().to_numpy()
+wlv = wl.dropna().to_numpy()
+
+# Define the bins for RD and WL raw indeces
+bins_rd = np.histogram_bin_edges(rdv, bins='fd')  # Freedman–Diaconis
+bins_wl = np.histogram_bin_edges(wlv, bins='fd')
+
+# Compute the histograms
+hist_rd, edges_rd = np.histogram(rdv, bins=bins_rd, density=True)
+hist_wl, edges_wl = np.histogram(wlv, bins=bins_wl, density=True)
+
+# Calculate the bin centers
+cent_rd = (edges_rd[:-1] + edges_rd[1:]) / 2
+cent_wl = (edges_wl[:-1] + edges_wl[1:]) / 2
+
+# Plotting the PDFs
+fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+ax[0].plot(cent_rd, hist_rd, lw=2)
+ax[0].set(title='Raw RD index PDF', ylabel='Probability Density', xlabel='River Discharge (m³/s)')
+ax[0].grid(True)
+
+ax[1].plot(cent_wl, hist_wl, lw=2)
+ax[1].set(title='Raw WL index PDF', ylabel='Probability Density', xlabel='Water level (m)')
+ax[1].grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+# Compute and plot the histograms to see the PDF of the rd and wl detrended anomalies
+# DataArray -> NumPy 1D without NaN
+rddv = rdE_danom_m.to_series().dropna().to_numpy()
+wldv = wl_danom.to_series().dropna().to_numpy()
+
+# Define the bins for RD and WL detrended anomalies, limiting the outliers.
+rddv_bins_base = np.clip(rddv, np.percentile(rddv, 1), np.percentile(rddv, 99))
+bins_rdd = np.histogram_bin_edges(rddv_bins_base, bins=30)   # 30 bin regolari
+bins_wld = np.histogram_bin_edges(wldv, bins='fd')           # FD va bene per WL
+
+# Compute the histograms
+hist_rdd, edges_rdd = np.histogram(rddv, bins=bins_rdd, density=True)
+hist_wld, edges_wld = np.histogram(wldv, bins=bins_wld, density=True)
+
+# Calculate the bin centers
+cent_rdd = (edges_rdd[:-1] + edges_rdd[1:]) / 2
+cent_wld = (edges_wld[:-1] + edges_wld[1:]) / 2
+
+# Plotting the PDFs
+fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+
+ax[0].plot(cent_rdd, hist_rdd, lw=2, color='r')
+ax[0].set(title='Detrended RD anomaly PDF',
+          ylabel='Probability Density',
+          xlabel='River Discharge anomaly (m³/s)')
+ax[0].grid(True)
+
+ax[1].plot(cent_wld, hist_wld, lw=2, color='r')
+ax[1].set(title='Detrended WL anomaly PDF',
+          ylabel='Probability Density',
+          xlabel='Water Level anomaly (m)')
+ax[1].grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+# To compare shapes fairly, it's opportune to normalize both datasets to z-scores and then plot on the same axis
+
+# DataArray -> NumPy 1D without NaN
+rddv = rdE_danom_m.to_series().dropna().to_numpy()
+wldv = wl_danom.to_series().dropna().to_numpy()
+
+# Normalization
+zr = (rddv - rddv.mean()) / rddv.std(ddof=1)
+zw = (wldv - wldv.mean()) / wldv.std(ddof=1)
+
+# Computation of bin width, histograms, and bin centers
+bins = np.linspace(-4, 4, 41)
+hr, e = np.histogram(zr, bins=bins, density=True)
+hw, _ = np.histogram(zw, bins=bins, density=True)
+c = (e[:-1] + e[1:]) / 2
+
+# Plot of compared normalized PDFs
+plt.figure(figsize=(8,5))
+plt.plot(c, hr, lw=2, label='RD z-score')
+plt.plot(c, hw, lw=2, label='WL z-score')
+plt.xlabel('z'); plt.ylabel('Probability Density'); plt.grid(True); plt.legend()
+plt.title('Detrended normalized anomalies PDF')
+plt.tight_layout(); plt.show()
+
+
+## Joint PDF ##
+def joint_pdf_2d(x, y, n_bins=60, center='median', mode='pdf'):
+    """
+    Empirical joint distribution on a rectilinear grid centered at mean/median.
+
+    x, y      : 1D arrays (NaNs allowed; they are dropped)
+    n_bins    : number of bins per axis (bin width = (max-min)/n_bins)
+    center    : 'median' or 'mean' for where the grid is centered
+    mode      : 'pdf' (default), 'prob' (probability per bin), or 'count'
+
+    Returns
+    -------
+    M   : 2D array (shape [nx, ny]) with pdf/probability/counts
+    XC  : 2D array of x bin centers (same shape as M)
+    YC  : 2D array of y bin centers (same shape as M)
+    dx, dy : bin widths (scalars)
+    """
+    x = np.asarray(x).ravel()
+    y = np.asarray(y).ravel()
+    m = np.isfinite(x) & np.isfinite(y)
+    x, y = x[m], y[m]
+
+    # ranges and widths
+    xmin, xmax = x.min(), x.max()
+    ymin, ymax = y.min(), y.max()
+    dx = (xmax - xmin) / n_bins
+    dy = (ymax - ymin) / n_bins
+
+    # grid centers (symmetrically around mean/median, like your code)
+    cx = np.median(x) if center == 'median' else x.mean()
+    cy = np.median(y) if center == 'median' else y.mean()
+
+    x_plus  = np.arange(cx, xmax + dx,  dx)
+    x_minus = np.arange(cx, xmin - dx, -dx)[-1:0:-1]
+    xc = np.concatenate([x_minus, x_plus])
+
+    y_plus  = np.arange(cy, ymax + dy,  dy)
+    y_minus = np.arange(cy, ymin - dy, -dy)[-1:0:-1]
+    yc = np.concatenate([y_minus, y_plus])
+
+    # convert centers -> edges for histogram2d
+    xedges = np.r_[xc - dx/2, xc[-1] + dx/2]
+    yedges = np.r_[yc - dy/2, yc[-1] + dy/2]
+
+    # raw counts per bin
+    H, _, _ = np.histogram2d(x, y, bins=[xedges, yedges], density=False)
+
+    if mode == 'count':
+        M = H
+    elif mode == 'prob':
+        M = H / H.sum()                       # Σ M = 1
+    else:  # 'pdf'
+        M = H / (H.sum() * dx * dy)           # ∫∫ M dx dy = 1
+
+    # centers mesh (same shape as M)
+    XC, YC = np.meshgrid(xc, yc, indexing='ij')
+    return M, XC, YC, dx, dy
+
+# align and drop NaNs
+danom_aligned = xr.Dataset({'rd': rdE_danom_m, 'wl': wl_danom}).to_dataframe().dropna()
+x = danom_aligned['rd'].to_numpy()
+y = danom_aligned['wl'].to_numpy()
+
+# joint PDF
+P, XX, YY, dx, dy = joint_pdf_2d(x, y, n_bins=40, center='median', mode='pdf')
+
+# plot (PDF)
+plt.figure(figsize=(7,6))
+cs = plt.contourf(XX, YY, P, levels=20, cmap='jet')
+plt.colorbar(cs, label='Probability density')
+plt.xlabel('RD anomaly (m³/s)')
+plt.ylabel('WL anomaly (m)')
+plt.title('Joint PDF RD–WL')
+plt.tight_layout()
+plt.show()

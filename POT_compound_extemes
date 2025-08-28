@@ -1,0 +1,187 @@
+##### Definition of indicators: RD - river discharge and WL - water level #####
+
+# --- 0) Align cleanly (inner join on daily dates) ---
+""""Build a single daily index, ensuring both drivers are observed on the same days. 
+    This avoids spurious “co-occurrence” caused by missing data and sets up like-for-like 
+    comparisons before extremes sampling."""
+aligned = (
+    pd.DataFrame({"RD": rd, "WL": wl})       # the two Series
+      .sort_index()
+      .loc["2010-01-01":"2021-12-31"]        # optional crop
+      .dropna()                              # keep only days with both values
+)
+print("Aligned days:", len(aligned), "| period:", aligned.index.min().date(), "→", aligned.index.max().date())
+
+# --- 1) Thresholds (fixed vs seasonal) ---
+def thresholds(series, q=0.95, mode="seasonal", baseline=("2010-01-01","2021-12-31")):
+    """
+    Compute a quantile-based threshold time series aligned to `series.index`.
+    ----------
+    Parameters
+    - series : pandas.Series
+        Input daily series.
+    - q : float, default 0.95
+        Quantile to use as the threshold (0.95 for the 95th percentile).
+    - mode : {"seasonal", "fixed"}, default "seasonal"
+        - "seasonal": month-varying thresholds computed on the baseline window and mapped to each day by calendar month.
+        - "fixed": a single threshold value (same for all days) computed on the baseline window.
+    - baseline : (str, str) or None
+        Date range ("2010-01-01","2021-12-31") used to compute the thresholds.
+        If None, the full series is used.
+    ----------
+    Returns → th : pandas.Series
+                   Threshold series aligned to `series.index`.
+    """
+    s = series.copy()
+    if baseline is not None:
+        s_base = s.loc[slice(*baseline)]
+    else:
+        s_base = s
+
+    if mode == "seasonal":
+        # month → threshold lookup (1..12)
+        mon_th = s_base.groupby(s_base.index.month).quantile(q)
+        th = s.index.month.map(mon_th.to_dict()).astype(float)
+        th = pd.Series(th, index=s.index)
+    elif mode == "fixed":
+        th_val = float(s_base.quantile(q))
+        th = pd.Series(th_val, index=s.index)
+    else:
+        raise ValueError("mode must be 'seasonal' or 'fixed'")
+    return th
+
+def indicators(series, q=0.95, mode="seasonal", baseline=("2010-01-01","2021-12-31")):
+    """
+    Construct exceedance indicators for an input Series.
+    For each day in the series, a high quantile threshold `th` is computed from a specified baseline period and aligned to the index. 
+      - If mode='fixed', `th` is the same scalar threshold for all months. 
+      - If mode='seasonal', `th` varies by calendar month to account for seasonality.
+
+    The function returns three Series, all aligned to the input index:
+      1) `th`    – the threshold values,
+      2) `flag`  – a binary indicator (1 if series ≥ th, else 0),
+      3) `excess`– the exceedance intensity (series − th, truncated below at 0).
+    """
+    th = thresholds(series, q=q, mode=mode, baseline=baseline)
+    flag = (series >= th).astype("int8")
+    excess = (series - th).clip(lower=0.0)
+    return th, flag, excess
+
+# build for both drivers
+thRD, Ird, Xrd   = indicators(aligned["RD"],   q=0.95, mode="seasonal")
+thWL, Iwl, Xwl   = indicators(aligned["WL"], q=0.95, mode="seasonal")
+
+# --- 2) Compound coincidence within ±k days ---
+def compound_flag(Ird, Iwl, k=1):
+    """ Compute a compound day when RD and WL exceedances co-occur within ± k days, by rolling-window “dilation” of each flag and coincidence. 
+
+    For each day t, the function returns 1 if an RD exceedance occurs within ±k days of t and a WL exceedance occurs within ±k days of t; 
+    otherwise 0. Operationally, each binary exceedance series is dilated with a centered window of width 2k+1 (rolling max), and
+    the intersection (logical AND) of the dilated series is taken.
+
+    Notes
+    • This symmetric definition marks the overlap day(s) of the two ±k neighborhoods; when
+      peaks are lagged, the compound flag can fall between the two peak days.
+    • To anchor the definition on RD days instead (tag an RD exceedance day as compound if
+      any WL exceedance occurs within ±k), replace the final AND with:
+          (Ird.astype(bool) & (Iwl.rolling(2*k+1, center=True, min_periods=1).max() > 0))
+    • Inputs should be clean 0/1 (or bool) without NaNs; fill missing values with 0 if needed.
+    """
+    win = 2*k + 1
+    Ird_d = Ird.rolling(win, center=True, min_periods=1).max()
+    Iwl_d = Iwl.rolling(win, center=True, min_periods=1).max()
+    return (Ird_d.astype(bool) & (Iwl_d > 0)).astype("int8")
+
+COMP = compound_flag(Ird, Iwl, k=1)
+
+# --- 3) Decluster consecutive (or near-consecutive) compound days into events ---
+def decluster_runs(flag, run=3):
+    """
+    Identify clusters of consecutive exceedance days in a binary series.
+
+    Consecutive 1s in `flag` (Series of 0/1) are merged into runs, and runs
+    separated by gaps of at most `run` days are also merged into a single
+    cluster. This implements the standard runs-declustering approach used in
+    peaks-over-threshold analyses to obtain approximately independent events.
+    """
+    s = flag.fillna(0).astype(int).values
+    n = len(s)
+    events = []
+    i = 0
+    while i < n:
+        if s[i] == 1:
+            start = i
+            last = i
+            j = i
+            while j+1 < n and ((s[j+1] == 1) or (j+1 - last) <= run):
+                if s[j+1] == 1:
+                    last = j+1
+                j += 1
+            events.append((start, last))
+            i = last + 1
+        else:
+            i += 1
+    return events
+
+def build_event_table(aligned, Ird, Iwl, Xrd, Xwl, COMP, run=3):
+    """
+    Summarize declustered compound events.
+    """
+    t = aligned.index
+    idx_windows = decluster_runs(COMP, run=run)
+    rows = []
+    for i0, i1 in idx_windows:
+        sl = slice(i0, i1+1)
+        tt = t[sl]
+
+        rd_w  = aligned["RD"].iloc[sl]
+        wl_w  = aligned["WL"].iloc[sl]
+        xRD_w = Xrd.iloc[sl]
+        xWL_w = Xwl.iloc[sl]
+        iRD_w = Ird.iloc[sl]
+        iWL_w = Iwl.iloc[sl]
+
+        rd_peak_val = rd_w.max();  rd_peak_time = rd_w.idxmax()
+        wl_peak_val = wl_w.max();  wl_peak_time = wl_w.idxmax()
+        lag_days = (wl_peak_time - rd_peak_time).days
+
+        sev_rd  = xRD_w.sum()
+        sev_wl  = xWL_w.sum()
+        sev_L2 = np.hypot(sev_rd, sev_wl)
+
+        rows.append(dict(
+            start = tt[0], end=tt[-1], duration=(tt[-1]-tt[0]).days+1,
+            rd_peak = rd_peak_val, rd_peak_time = rd_peak_time,
+            wl_peak = wl_peak_val, wl_peak_time = wl_peak_time,
+            lag_wl_minus_rd_days = lag_days,
+            sev_rd = sev_rd, sev_wl = sev_wl, sev_L2=sev_L2,
+            n_rd_exceed=int(iRD_w.sum()), n_wl_exceed=int(iWL_w.sum())
+        ))
+    return pd.DataFrame(rows).sort_values("start").reset_index(drop=True)
+
+events = build_event_table(aligned, Ird, Iwl, Xrd, Xwl, COMP, run=3)
+
+print("Compound events:", len(events))
+print(events.head())
+
+# table
+def events_table(events: pd.DataFrame) -> pd.DataFrame:
+    tbl = events.copy()
+    tbl.insert(0, "event_id", range(1, len(tbl)+1))
+    tbl = tbl.rename(columns={
+        "start":"start_date", "end":"end_date",
+        "duration":"duration_days",
+        "rd_peak":"RD_peak", "rd_peak_time":"RD_peak_time",
+        "wl_peak":"WL_peak", "wl_peak_time":"WL_peak_time",
+        "lag_wl_minus_rd_days":"lag_WL_minus_RD_days",
+        "sev_rd":"sev_RD", "sev_wl":"sev_WL", "sev_L2":"sev_L2",
+        "n_rd_exceed":"n_RD_exceed", "n_wl_exceed":"n_WL_exceed"
+    })
+    # round
+    for c in ["RD_peak","WL_peak","sev_RD","sev_WL","sev_L2"]:
+        tbl[c] = tbl[c].astype(float).round(3)
+    return tbl
+
+tbl = events_table(events)
+display(tbl)
+tbl.to_csv("compound_events.csv", index=False)

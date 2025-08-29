@@ -7,22 +7,17 @@ The study investigates the interaction between river discharge and coastal water
 ## Methodology
 The workflow is divided as follows:
 
- 1. data_load_preprocessing
+ 1. data_load_preprocessing 
     + Load reanalysis datasets (GloFAS river discharge, coastal water levels/waves).
     + Extract the grid points closest to the Keta Basin, Ghana.
     + Perform basic cleaning: missing values, unit checks, and alignment of datasets on a common timeline.
     + Output: ready-to-use time series of discharge (rd_estuary, rd_lake) and water levels (wl_estuary).
 
 2. variability_analysis
-
-Explore the temporal variability of the datasets.
-
-Compute basic statistics (mean, standard deviation, seasonal cycles).
-
-Plot time series and variability at different scales (daily, monthly, annual).
-
-Identify potential drivers of variability in river discharge and water levels.
-
+    + Explore the temporal variability of the datasets.
+    + Compute basic statistics (mean, standard deviation, seasonal cycles).
+    + Plot time series and variability at different scales (daily, monthly, annual).
+ 
 3. POT_extremes
 
 Apply the Peak Over Threshold (POT) method to detect extreme events.

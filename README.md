@@ -3,6 +3,8 @@
 ## In this repo:
 + In the "script" folder:
   + the code for the compound flooding analysis in the Keta Basin.
+ 
+(to be added):
 + In the "main results" folder:
   + the results obtained from the analysis are birefly described and discussed.
 + In the "document" folder:

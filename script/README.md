@@ -22,17 +22,10 @@ The workflow is divided as follows:
     + It then compares distributions with PDFs of raw series and detrended anomalies, and estimates joint PDF (RD–WL) to assess co-variability as a prelude to compound analysis.
  
 3. `POT_extremes`
+    + The Peak Over Threshold (POT) method is applied to detect extreme events, following Hendry et al. 2019 (https://doi.org/10.5194/hess-23-3117-2019).
+    + Thresholds are adapted to yield ~2–5 exceedances per year (consistent with Extreme Value Theory).
+    + Identify extreme events separately for discharge and water levels.
+    + Combine the two dimensions to detect compound flooding events:
+        + Univariate extremes (river-only or coastal-only).
+        + Compound extremes (simultaneous extremes).
 
-Apply the Peak Over Threshold (POT) method to detect extreme events.
-
-Thresholds adapted to yield ~2–5 exceedances per year (consistent with Extreme Value Theory).
-
-Identify extreme events separately for discharge and water levels.
-
-Combine the two dimensions to detect compound flooding events:
-
-Univariate extremes (river-only or coastal-only).
-
-Compound extremes (simultaneous extremes).
-
-Visualise results using scatter plots and exceedance contours.

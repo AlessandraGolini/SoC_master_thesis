@@ -13,7 +13,7 @@ The workflow is divided as follows:
     + Perform basic cleaning: missing values, unit checks, and alignment of datasets on a common timeline.
     + Output: ready-to-use time series of discharge (rd_estuary, rd_lake) and water levels (wl_estuary).
 
-2. `variability_analysis` explores the temporal variability of the datasets by:
+2. `variability_analysis` explores the temporal variability and distribution of the datasets by:
     + Mapping the mean discharge climatology and mark analysis points (estuary, Volta lake).
     + Plotting raw and monthly-mean time series for river discharge (RD) and water level (WL).
     + Computing monthly climatology and monthly anomalies; fitting and remove linear trends; plotting detrended anomalies.

@@ -7,7 +7,8 @@ The geographical focus of this study includes a region in sub-Saharan Africa par
 
 This low-lying area is severely affected by coastal erosion, sea-level rise, saline water intrusion, and increasing flood risk, having experienced significant shoreline retreat over recent decades, with entire villages displaced and infrastructure lost to the sea. In fact, the Keta Basin is exposed to marine flooding events and coastal storm surges, with the Volta River estuary additionally influencing local hydrodynamics. The relative relevance of the marine and riverine components in the flood risk can be investigated through the characterisation of compound flooding events in the considered area. To carry out such analysis, two points of reference were arbitrarily chosen: the first (0.667°E, 5.77°N), at the Volta river mouth, close to Ada Foah. A second point was picked just downstream the Volta Lake, near to Akosombo (0.087°E, 6.267°N), as a comparative reference for the river discharge component. 
 
-<img width="2212" height="1016" alt="immagine" src="https://github.com/user-attachments/assets/d73ffe96-b624-401c-8b44-30a5f6f182ad" />
+<img width="2212" height="1016" alt="immagine" src="https://github.com/user-attachments/assets/18270274-f313-4a8c-a20e-d5cb29fdb83f" />
+
 
 
 

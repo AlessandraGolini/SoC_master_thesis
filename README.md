@@ -7,6 +7,7 @@
   + the results obtained from the analysis are birefly described and discussed.
 + In the "useful_materials" folder:
   + some key papers and websites still to be reviewed.  
+
 (to be added):
 + In the "document" folder:
   + uptdating drafts of the thesis document are saved.

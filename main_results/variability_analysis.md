@@ -16,6 +16,12 @@ The daily river discharge stored in the GloFAS dataset represent the streamflow 
 
 The top time series show the diacharge at the Volta River mouth. It ranges from a baseflow of about 600 m³/s to peaks up to 16974 m³/s, with a trend that, in its form, seems to repeat itself for each year: low values in the first months, with few or no peaks above the baseflow, and then one sharp peak in the second half of the year, for almost every year. The highest crest was recorded in 2018, with other very high years in 2019, 2020, 2010. The bottom graph represents the same time series just downstream of Lake Volta. It can be noted the difference in the magnitude of river discharge values: in this case the range of values goes from nearly zero to ~20 m³/s, with a 3 order of magnitude of difference with respect to the downstream other reference point. Moreover, the streamflow in this part of the Volta River presents few very spiky and flashy relatively high spikes, with many short peaks. The higher values are clustered in the same seasons as the mouth peaks and, generally, the time distribution approximately replicates the same shape of the discharge at the estuary, even if slightly skewed to the left (meaning that the high streamflow values are anticipated at the Volta Lake with respect to the delta region). The bursts appear around 2010 and 2019, followed by 2014, 2012, and 2017.
 
-<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/0330b961-a117-4f28-b2e8-641f3ab64bad" />
+<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/5eafd48b-b0e2-4acc-8761-e804f6264ac4" />
+
+**Monthly mean river discharge and climatology**
+
+<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/d54ff226-a8af-446c-858f-6178054256a5" />
+
+<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/779c3f8c-69cf-49aa-b0c9-25acf8c83cbb" />
 
 

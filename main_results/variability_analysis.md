@@ -22,6 +22,6 @@ The top time series show the diacharge at the Volta River mouth. It ranges from 
 
 <img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/d54ff226-a8af-446c-858f-6178054256a5" />
 
-<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/779c3f8c-69cf-49aa-b0c9-25acf8c83cbb" />
+<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/96e244c6-9036-4c36-8bc1-8b4a46f89b50" />
 
 

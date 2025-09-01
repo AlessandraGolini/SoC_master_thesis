@@ -19,7 +19,7 @@ The top time series show the discharge at the Volta river mouth. It ranges from 
 
 <img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/5eafd48b-b0e2-4acc-8761-e804f6264ac4" />
 
-The similarity in the shape of the temporal distributions of river discharge at these two different locations could be due to the influence of the reservoir created by the Akosombo Dam.
+Therefore, the river discharge temporal distributions at these two different locations present several similarities. This could be due to the influence of the reservoir created by the Akosombo Dam, which regulates the flow downstream the dam 
 
 Both sites show strong annual cycles, that could be linked either to precipitation distribution in the Volta Basin, or to the management of the Akosombo Dam. The proximity to the dam itself, for instance, makes the hydrograph slightly dampened downstrem of Volta Lake, maintaining a more sustained discharge and therefore reflecting reservoir regulation. The dam releases, in fact, can explain why flows remain above zero even in dry periods. Neither of these timeseries exibit a clear and visible long-term upward or downward trendin discharge, which makes sense because the flow regulation depends on the management of the artificial lake at the north of Akosombo, but also because precipitation is a highly noisy variable, especially at the Tropics. 
 

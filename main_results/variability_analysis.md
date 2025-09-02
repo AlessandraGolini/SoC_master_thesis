@@ -23,12 +23,17 @@ Hence, the temporal distributions of river discharge at these two different loca
 
 
 **Monthly mean river discharge and climatology**
+
 Let's now investigate the mean seasonality of river discharge, by computing the long-term monthly mean of this variable. In the figure below the monthly river discharge climatology is shown at the two locations: in the top panel the estuary, near Ada Foah, and in the bottom panel just downstream of Volta Lake, below the Akosombo Dam. As already mentioned, both series show a very mpronounced annual cycle: the discharge remains relatively low and stable from January to May. Then, from June onward, the streamflow gradually increases, peaking in September-October, before declining again towards December. Between the two locations there are little differences: the timing and shape of the seasonal rise and fall is almost identical; what's differenciate the two locations are the mean discharge values, slightly lower at the upstrem site.
 
 <img width="700" height="500" alt="image" src="https://github.com/user-attachments/assets/6b14235f-464a-429c-96e8-e4ee38024889" />
 
 This graph confirms what was hypothesized before: the seasonal pattern closely follows the West African Monsoon rainfall regime. Rainfall starts in the southern basin (April–June), migrates northward in boreal summer (July–August), and retreats south by September–October. The discharge peak may result delayed with respect to rainfall peaks due to basin storage and hydrological routing. Moreover, at the estuary, mean discharge appears to be slightly higher at peak compared to just below the dam, reflecting additional contributions from downstream tributaries downstream the Volta Lake. 
 
+
+In addition to the long-term climatology, it is here shown the **interannual variability of monthly discharge**. This figure below represents the monthly means for each year between 2010 and 2021 at the two locations, with the overall climatological mean reported for reference. The general seasonal pattern described by the climatology is consistent across all years: flows remain low from January to May, start rising in June and sharply increases into September-October peaks. It can be noted that the magnitude of these peaks varies markedly between years. For example, exceptionally high discharges are evident in September 2018 and October 2019, followed by October 2020. In these occasions, monthly mean river discharge at the estuary reached values of about 12990 m³/s, 9916 m³/s, and 8286 m³/s, respectively. By contrast, years such as 2012, 2013, or 2014 display much more moderate peaks in the order of 4,000–6,000 m³/s. When comparing the two sites, the timing of the rise and fall is almost identical, which suggests that the Akosombo Dam does not alter the overall seasonal rhythm. Its influence is clearer when looking to the difference in the discharge values, even if little: downstream of Lake Volta the curve has peaks slightly dampened compared to the estuary. Meanwhile, flows at the estuary are a little higher at peak, likely because of additional tributaries that join the river downstream of the dam. In general, the interannual variability shown here can be linked to the one of West African Monsoons, depending on both its intensity and the distribution of rainfall across the Volta Basin.
+
 <img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/96e244c6-9036-4c36-8bc1-8b4a46f89b50" />
+
 
 

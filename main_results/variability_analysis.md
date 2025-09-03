@@ -42,6 +42,7 @@ In addition to the long-term climatology, it is here shown the **interannual var
 
 **Monthly river discharge anomalies**
 
-<img width="700" height="500" alt="image" src="https://github.com/user-attachments/assets/b2caa3a0-97ca-4c5b-971c-8e74e825d30a" />
+<img width="700" height="500" alt="image" src="https://github.com/user-attachments/assets/0cb67be6-224e-429a-8649-7532c31c290a" />
+
 
 

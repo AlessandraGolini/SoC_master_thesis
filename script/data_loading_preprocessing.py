@@ -154,6 +154,7 @@ plt.show()
 #  get all the data without leaving the script here. 
 #  It can be a notebook or a python script, this is not important, but everything has to be 
 #  consistently reachable and reproducible at the same spot. 
+# you need create an account here and put credential in https://ewds.climate.copernicus.eu/profile?tab=profile
 #  https://confluence.ecmwf.int/pages/viewpage.action?pageId=428248687
  
 os.makedirs("keta_data",exist_ok=True)

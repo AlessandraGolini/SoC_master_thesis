@@ -4,30 +4,24 @@
 # Standard library
 import os
 import glob
-import calendar
-from calendar import month_abbr
-from dataclasses import dataclass
 
 # Scientific computing
 import numpy as np
 import pandas as pd
-from scipy import stats
-from scipy.stats import norm, multivariate_normal, kendalltau, spearmanr
-from scipy.interpolate import griddata
 import xarray as xr
 from netCDF4 import Dataset
 
 # Visualization
 import matplotlib.pyplot as plt
-from matplotlib.cm import get_cmap
 from matplotlib.patches import Rectangle
 
 # Geospatial
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import geopandas as gpd
-import osmnx as ox
+
+# cds
+from cds_request import cds_request_keta
 
 ##### Define useful functions #####
 def detrend_dim(da, dim="time", deg=1, baseline=None, return_trend=False, skipna=True):
@@ -74,7 +68,7 @@ lon_lake, lat_lake = 0.087, 6.267 # these are the coordinates of the Volta River
 
   # Create figure and axis with PlateCarree projection
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(30, 12), subplot_kw={'projection': ccrs.PlateCarree()})
-  # First panel: Broad focus Area
+# First panel: Broad focus Area
 ax[0].set_extent([full_lon_min, full_lon_max, full_lat_min, full_lat_max])
 ax[0].coastlines(resolution='10m')  # Dettagli costieri
 ax[0].add_feature(cfeature.BORDERS, linestyle='-', linewidth=1.5)
@@ -117,6 +111,7 @@ rect2 = Rectangle((lon_min, lat_min), lon_max - lon_min, lat_max - lat_min,
                   linewidth=2, edgecolor='red', facecolor='none', transform=ccrs.PlateCarree())
 ax[1].add_patch(rect2)
 ax[1].text(lon_min, lat_max + 0.05, 'Volta Estuary', color='red',fontsize=20, transform=ccrs.PlateCarree())
+plt.tight_layout()
 plt.show()
 
 ## For further analysis, it will be take into account a single point, located at the Volta River Mouth (5.77°N e 0.667°E), 
@@ -148,10 +143,23 @@ plt.show()
 
 ##### Load and preprocess data #####
 ### GloFAS data ###
-# note: this dataset was downloaded from the CEMS Early Warning Data store (https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical?tab=overview), selecting the years between 2010-2021 singularly.
+# note: this dataset was downloaded from the CEMS Early Warning Data store 
+# (https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical?tab=overview), 
+# selecting the years between 2010-2021 singularly.
 # in the following these separated files are concatenated and sorted.
-  # Working directory
-os.chdir("C:/Users/aless/Desktop/dati_tesi/glofas_keta")
+##
+# ----------------------------------------
+# Message from Thomas: 
+#  Alessandra, the script needs to be reproducible e.g. someone without knowledge needs to be able to 
+#  get all the data without leaving the script here. 
+#  It can be a notebook or a python script, this is not important, but everything has to be 
+#  consistently reachable and reproducible at the same spot. 
+# you need create an account here and put credential in https://ewds.climate.copernicus.eu/profile?tab=profile
+#  https://confluence.ecmwf.int/pages/viewpage.action?pageId=428248687
+ 
+os.makedirs("keta_data",exist_ok=True)
+for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]:
+  cds_request_keta(year)
 files_glofas = sorted(glob.glob("*.nc"))
   # Open and concatenate
 glofas_ds = [xr.open_dataset(f) for f in files_glofas]

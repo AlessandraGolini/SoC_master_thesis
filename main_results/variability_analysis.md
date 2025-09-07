@@ -53,5 +53,10 @@ Comparing then the two locations, the temporal pattern of anomalies is largely s
 
 <img width="700" height="500" alt="image" src="https://github.com/user-attachments/assets/0cb67be6-224e-429a-8649-7532c31c290a" />
 
+**Detrended statistics**
+To better understand the variability of a certain climatic index, it is convenient to remove the seasonal cycle from the timeseries by computing the anomaly as the difference between the monthly (or daily) mean and the long-term monthly (or daily) climatology for each month (or day of the year). In this way we obtain a timesereis of anomaly values that oscillate around the zero, and that better represent the variability of river discharge in the Keta basin, in Ghana, within the period 2010-2021.
 
+First of all, the raw time series is here plotted again with highlighting the eventual trends detected within the series. These trends are estimated by fitting a polynomial in time over the baseline (here 2010–2021); with `deg=1` it’s a straight line obtained by ordinary least squares. It summarizes the background drift not tied to the seasonal cycle and can reflect climate variability or change, regulation, or other slow drivers. After fitting, the trend is evaluated at each timestamp and subtracted from the raw data to form a detrended series, so climatologies and anomalies aren’t biased by long-term changes.
+<img width="700" height="500" alt="immagine" src="https://github.com/user-attachments/assets/3c83878f-468c-4074-8816-995471de632c" />
 
+Both sites show a clear yet slow upward linear (least-squares) trend in discharge. This is very small compared with flood peaks, but substantial relative to baseflow. At the estuary the background flow rises by about 75 m³/s per year (≈ +748 m³/s per decade), totaling a +40% per decade relative to its mean (~1,871 m³/s). Downstream of the Volta Lake the rise is similar: 72 m³/s per year (≈ +725 m³/s per decade), again about +40% per decade relative to its mean (~1,791 m³/s).

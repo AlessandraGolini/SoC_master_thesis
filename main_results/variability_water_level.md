@@ -24,6 +24,9 @@ Lastly, the daily climatology (blue) shows considerable intra-month variability,
 
 <img width="700" height="490" alt="immagine" src="https://github.com/user-attachments/assets/f4fe78a6-309f-4add-b192-100f8a3fff68" />
 
-These fluctuations align closely with seasonal wind-driven coastal upwelling and ocean dynamics in the Gulf of Guinea. In fact, the boreal summer is characterized by strengthened southwesterly monsoon winds that induce upwelling: wind-driven divergence of surface waters causes cold, dense subsurface water to rise and replace them, which simultaneously lowers the coastal sea surface height (https://doi.org/10.1016/0079-6611(92)90002-H, https://doi.org/10.1038/s41598-024-55170-x).
+These fluctuations are representative of seasonal synoptic-scale atmospheric forcing (such as wind surges, pressure anomalies, and tropical weather systems) trat influence the ocean dynamic in the Gulf of Guinea. For example, the boreal summer is characterized by strengthened southwesterly monsoon winds that induce upwelling. This process shoals the thermocline and brings cold, dense subsurface waters to the surface, thereby lowering the local sea surface height (Verstraete, 1992 https://doi.org/10.1016/0079-6611(92)90002-H, https://doi.org/10.1038/s41598-024-55170-x). 
 
-In addition to the seasonal cycle, interannual variability can significantly alter the amplitude of the observed extremes. For instance, the Atlantic Niño/Atlantic Equatorial Mode influences wind stress and sea surface temperature in the Gulf of Guinea, leading to steric changes in sea level and variability in the intensity of coastal upwelling (Tokinaga & Xie, 2011). Such climate modes can explain why some years exhibit stronger seasonal maxima and minima than others, even though the annual cycle remains the dominant pattern.
+**Water Level Anomaly**
+
+
+<img width="700" height="490" alt="immagine" src="https://github.com/user-attachments/assets/9fe29daa-6ad9-43d0-bae5-e37835b4babc" />

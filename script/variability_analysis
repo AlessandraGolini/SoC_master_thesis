@@ -52,63 +52,143 @@ ax2.grid(True, axis='x', which='major', alpha=0.5)
 ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
 plt.show()
 
-## Monthly mean climatology of RD
-  # Monthly mean values at the two locations (E = estuary, L = lake)
+# -----------------------------
+# Daily climatology and anomaly
+# -----------------------------
+
+# drop Feb 29 to get a 365-day climatology
+is_feb29e = (rd_estuary.time.dt.month == 2) & (rd_estuary.time.dt.day == 29)
+rdE_noleap = rd_estuary.sel(time=~is_feb29e)
+rdE_noleap = rdE_noleap.convert_calendar("noleap", dim="time", align_on="date")
+
+
+is_feb29l = (rd_lake.time.dt.month == 2) & (rd_lake.time.dt.day == 29)
+rdL_noleap = rd_lake.sel(time=~is_feb29l)
+rdL_noleap = rdL_noleap.convert_calendar("noleap", dim="time", align_on="date")
+
+# --- Daily climatology (2010–2021) ---
+rdE_dailyclim = rdE_noleap.groupby('time.dayofyear').mean('time')
+rdL_dailyclim = rdL_noleap.groupby('time.dayofyear').mean('time')
+
+dates_clim = pd.date_range("2010-01-01", periods=int(rdE_dailyclim.sizes["dayofyear"]), freq="D")
+rdE_dailyclim = rdE_dailyclim.assign_coords(date=("dayofyear", dates_clim))
+rdL_dailyclim = rdL_dailyclim.assign_coords(date=("dayofyear", dates_clim))
+
+# --- Daily anomalies (value - daily climatology) ---
+def to_datetime64_from_cftime(tcoord):
+    return pd.to_datetime([f"{t.year:04d}-{t.month:02d}-{t.day:02d}" for t in tcoord.values])
+
+rdE_dailyanom = rdE_noleap.groupby('time.dayofyear') - rdE_dailyclim
+rdE_dailyanom = rdE_dailyanom.assign_coords(date=("time", to_datetime64_from_cftime(rdE_dailyanom["time"])))
+
+rdL_dailyanom = rdL_noleap.groupby('time.dayofyear') - rdL_dailyclim
+rdL_dailyanom = rdL_dailyanom.assign_coords(date=("time", to_datetime64_from_cftime(rdL_dailyanom["time"])))
+
+# ---
+
+# -------------------------------
+# Monthly climatology and anomaly
+# -------------------------------
+
+# Monthly mean values at the two locations (E = estuary, L = lake)
 rdE_mon = rd_estuary.resample(time='MS').mean()   # 'MS' = Month Start
 rdL_mon = rd_lake.resample(time='MS').mean()
-  # Monthly climatology (average over all years for each month)
+
+# Monthly climatology (average over all years for each month)
 rdE_clim = rdE_mon.groupby('time.month').mean('time')   # dims: month
 rdL_clim = rdL_mon.groupby('time.month').mean('time')
-  # Anomalies = monthly mean - climatology
+
+# Anomalies = monthly mean - climatology
 rdE_anom = rdE_mon.groupby('time.month') - rdE_clim       # dims: time
 rdL_anom = rdL_mon.groupby('time.month') - rdL_clim
 
+
   # Plots
+# Plots
 months = list(calendar.month_name)[1:]
+
 # --------------------------------------
-# Monthly climatology of river discharge
+# Daily climatology plot RD
 # --------------------------------------
+fig, ax = plt.subplots(figsize=(12,4))
+ax.plot(rdE_dailyclim['date'].values, rdE_dailyclim.values, marker='o', 
+        ms=2, lw=0.8, label = 'Estuary (0.667°E, 5.77°N)')
+ax.plot(rdL_dailyclim['date'].values, rdL_dailyclim.values, marker = 'o',
+        color = 'purple', ms=2, lw=0.8, label ='Below the Volta Dam (0.087°E, 6.267°N)')
+ax.set_title("Daily River Discharge Climatology (2010–2021)")
+ax.set_ylabel("Discharge (m³/s)")
+ax.set_xlabel("Month")
+ax.grid(True, axis='x', alpha=0.5)
+ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax.legend()
+
+# Tidy monthly ticks
+months = pd.date_range('2010-01-01', '2011-01-01', freq='MS')[:-1]
+ax.set_xticks(months)
+ax.set_xticklabels([m.strftime('%b') for m in months])
+plt.tight_layout()
+plt.show()
+
+# -----------------------------------------------
+# Daily vs Monthly climatology RD
+# -----------------------------------------------
+
 fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(12, 8), sharex=True)
-  # --- Estuary ---
-ax1.plot(rdE_clim['month'].values, rdE_clim.values, marker='o', label = 'Mean 2010-2021')
-ax1.set_title("Monthly River Discharge Climatology at the estuary (0.667°E, 5.77°N)")
+# reference year (already non-leap)
+year = pd.to_datetime(rdE_dailyclim['date'].values[0]).year
+# dates for the monthly (start the month in the same year as daily)
+month_dates = pd.date_range(f"{year}-01-01", periods=12, freq="MS")
+
+# --- Estuary ---
+ax1.plot(rdE_dailyclim['date'].values, rdE_dailyclim.values, lw=0.9, label="Daily mean 2010–2021")
+ax1.plot(month_dates, rdE_clim.values, marker='o', label="Monthly mean 2010–2021")
+
+ax1.xaxis.set_major_locator(mdates.MonthLocator())
+ax1.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax1.set_xlim(pd.Timestamp(f"{year}-01-01"), pd.Timestamp(f"{year}-12-31"))
+
+ax1.set_title("River Discharge Climatology at the Estuary (0.667°E, 5.77°N)")
 ax1.set_ylabel("Discharge (m³/s)")
-ax1.set_xlabel("Month", labelpad=8)
-ax1.set_xticks(range(1, 13))
-ax1.set_xticklabels(months)
-  # vertical lines: one per month
-ax1.grid(True, axis='x', which='major', alpha=0.5)
-  # a few horizontal lines (major only)
-ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax1.legend(loc='upper left', frameon=False)
-  # --- Volta Lake ---
-ax2.plot(rdL_clim['month'].values, rdL_clim.values, marker='o', label = 'Mean 2010-2021')
-ax2.set_title("Monthly River Discharge Climatology at Volta Lake (0.117°E, 6.50°N)")
+ax1.set_xlabel("Month")
+ax1.grid(True, axis='x', alpha=0.5)
+ax1.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax1.legend(frameon=False)
+
+# --- Volta Lake ---
+ax2.plot(rdL_dailyclim['date'].values, rdL_dailyclim.values, color = 'purple' , lw=0.9, label="Daily mean 2010–2021")
+ax2.plot(month_dates, rdL_clim.values, marker='o', color= 'blue',  label="Monthly mean 2010–2021")
+
+ax2.xaxis.set_major_locator(mdates.MonthLocator())
+ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax2.set_xlim(pd.Timestamp(f"{year}-01-01"), pd.Timestamp(f"{year}-12-31"))
+
+ax2.set_title("River Discharge Climatology downstream the Volta Lake (0.087°E, 6.267°N)")
 ax2.set_ylabel("Discharge (m³/s)")
 ax2.set_xlabel("Month")
-ax2.set_xticks(range(1, 13))
-ax2.set_xticklabels(months)
-  # vertical lines: one per month
-ax2.grid(True, axis='x', which='major', alpha=0.5)
-  # a few horizontal lines (major only)
-ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax2.legend(loc='upper left', frameon=False)
+ax2.grid(True, axis='x', alpha=0.5)
+ax2.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax2.legend(frameon=False)
 plt.tight_layout()
 plt.show()
 
 years = sorted(set(rd_estuary['time'].dt.year.values))
+
 # --------------------------------------
 # Monthly mean river discharge
 # --------------------------------------
+
 fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 10), sharex=True)
 cmap = plt.get_cmap('tab20')
 colors = [cmap(i % cmap.N) for i in range(len(years))]
-  # --- Estuary ---
+
+# --- Estuary ---
 for i, (y1, yy1) in enumerate(rdE_mon.groupby('time.year')):
     # yy is the monthly series for that year (up to 12 points)
     ax1.plot(yy1['time.month'].values, yy1.values, label=str(y1), color=colors[i])
+
 ax1.plot(rdE_clim['month'], rdE_clim.values, color='black', label='Climatology', linewidth=2)
-ax1.set_title("River Discharge at the estuary (0.667°E, 5.77°N) - Monthly mean")
+
+ax1.set_title("Interannual Variability of River Discharge at the estuary (0.667°E, 5.77°N)")
 ax1.set_ylabel("Discharge (m³/s)")
 ax1.set_xlabel("Month", labelpad=8)
 ax1.set_xticks(range(1, 13))
@@ -118,12 +198,15 @@ ax1.set_axisbelow(True)
 ax1.grid(True, axis='x', which='major', alpha=0.5)             
 ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
 ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=8, ncol=1, title="Year")
-  # --- Volta Lake ---
+
+# --- Volta Lake ---
 for j, (y2, yy2) in enumerate(rdL_mon.groupby('time.year')):
     # yy is the monthly series for that year (up to 12 points)
     ax2.plot(yy2['time.month'].values, yy2.values, label=str(y2), color=colors[j])
+
 ax2.plot(rdL_clim['month'], rdL_clim.values, color='black', label='Climatology', linewidth=2)
-ax2.set_title("River Discharge at Volta Lake (0.117°E, 6.50°N) - Monthly mean")
+
+ax2.set_title("Interannual Variability of River Discharge downstream the Volta Lake (0.087°E, 6.267°N) - Monthly mean")
 ax2.set_ylabel("Discharge (m³/s)")
 ax2.set_xlabel("Month", labelpad=8)
 ax2.set_xticks(range(1, 13))
@@ -137,135 +220,223 @@ ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize
 plt.tight_layout()
 plt.show()
 
-## RD anomaly
-## Anomaly without detrending
-  # get unique years from anomalies
-years = np.unique(rdE_anom['time.year'].values)
-  # add one extra year so the grid reaches the end of the plot
+#---------------------------------
+# Anomaly
+#---------------------------------
+# Unique years + one extra for right edge
+years = np.unique(rdE_dailyanom['time.year'].values)
 years_ext = np.append(years, years[-1] + 1)
 year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
-# --------------------------------------
-# Monthly river discharge anomaly
-# --------------------------------------
-fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(13, 9), sharex=True)
-  # --- Estuary ---
-ax1.plot(rdE_anom['time'], rdE_anom.values, color='r', linewidth=1)
-ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)  # baseline
-ax1.set_title("River Discharge Monthly Anomaly at the Estuary (0.667°E, 5.77°N)")
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 9), sharex=True)
+
+# --- Estuary ---
+ax1.plot(rdE_anom['time'], rdE_anom.values, color='b', linewidth=1.3, linestyle = '--', label = 'Monthly anomaly')
+ax1.plot(rdE_dailyanom['date'].values, rdE_dailyanom.values, linewidth=1, color= 'r', label = 'Daily anomaly')
+ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax1.set_title("River Discharge Anomaly at the Estuary (0.667°E, 5.77°N)")
 ax1.set_ylabel("Anomaly (m³/s)")
 ax1.set_xticks(year_ticks)
-ax1.set_xticklabels(years_ext)  # show all year numbers including the last
+ax1.set_xticklabels(years_ext)
 ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
 ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-  # --- Volta Lake ---
-ax2.plot(rdL_anom['time'], rdL_anom.values, color='r', linewidth=1)
+ax1.legend()
+
+# --- Volta Lake ---
+ax2.plot(rdL_anom['time'], rdL_anom.values, color='purple', linewidth=1.3, linestyle = '--', label = 'Monthly anomaly')
+ax2.plot(rdL_dailyanom['date'].values, rdL_dailyanom.values, linewidth=1, color= 'orange', label = 'Daily anomaly')
 ax2.axhline(0, color='k', linewidth=0.8, alpha=0.6)
-ax2.set_title("River Discharge Monthly Anomaly at Volta Lake (0.117°E, 6.50°N)")
+ax2.set_title("River Discharge Anomaly downstream the Volta Lake (0.087°E, 6.267°N)")
 ax2.set_ylabel("Anomaly (m³/s)")
 ax2.set_xlabel("Year")
 ax2.set_xticks(year_ticks)
 ax2.set_xticklabels(years_ext)
 ax2.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
 ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax2.legend()
 
 plt.tight_layout()
 plt.show()
 
-# River Discharge Anomalies for Autumn months
-sel_months = [9, 10, 11, 12]  
-colors = ["r", "g", "b", "orange"]  
 
-fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 8), sharex=True)
-  # --- Estuary ---
-for i, m in enumerate(sel_months):
-    dataE = rdE_anom.sel(time=rdE_anom['time.month'] == m)
-    ax1.plot(dataE['time'], dataE, color=colors[i], lw=1.2, label=months[m-1])
-ax1.axhline(0, color="k", lw=0.8, alpha=0.6)
-ax1.set_title("River Discharge Anomalies - Estuary (0.667°E, 5.77°N)")
-ax1.set_ylabel("Discharge Anomaly (m³/s)")
+# --------------------------------------
+# Detrended climatologies and anomalies
+# --------------------------------------
+baseline = ('2010-01-01','2021-12-31')
+
+# helper per assegnare una coord 'date' da cftime -> datetime64
+def to_datetime64_from_cftime(tcoord):
+    import pandas as pd
+    return pd.to_datetime([f"{t.year:04d}-{t.month:02d}-{t.day:02d}" for t in tcoord.values])
+
+# ---------- ESTUARY ----------
+# trend and detrended time series
+rdE_danom_from_anomd, rdE_clim_from_anomd, rdE_trend = anomd(rd_estuary, baseline=baseline, deg=1)
+rdE_detr = rd_estuary - rdE_trend.interp(time=rd_estuary['time'])
+
+# detrended monthly climatology
+rdE_dclim_m = rdE_detr.sel(time=slice(*baseline)).groupby('time.month').mean('time')
+
+# detrended daily climatology
+is_feb29_E = (rdE_detr.time.dt.month == 2) & (rdE_detr.time.dt.day == 29)
+rdE_detr_noleap = rdE_detr.sel(time=~is_feb29_E).convert_calendar("noleap", dim="time", align_on="date")
+rdE_dclim_d = rdE_detr_noleap.sel(time=slice(*baseline)).groupby('time.dayofyear').mean('time')
+
+dates_clim = pd.date_range("2010-01-01", periods=int(rdE_dclim_d.sizes["dayofyear"]), freq="D")
+rdE_dclim_d = rdE_dclim_d.assign_coords(date=("dayofyear", dates_clim))
+
+# detrended anomalies
+rdE_danom_d = rdE_detr_noleap.groupby('time.dayofyear') - rdE_dclim_d
+rdE_danom_d = rdE_danom_d.assign_coords(date=("time", to_datetime64_from_cftime(rdE_danom_d["time"])))
+
+rdE_danom_m = rdE_detr.resample(time='MS').mean().groupby('time.month') - rdE_dclim_m
+
+# ---------- VOLTA LAKE ----------
+# trend and detrended time series
+rdL_danom_from_anomd, rdL_clim_from_anomd, rdL_trend = anomd(rd_lake, baseline=baseline, deg=1)
+rdL_detr = rd_lake - rdL_trend.interp(time=rd_lake['time'])
+
+# detrended monthly climatology
+rdL_dclim_m = rdL_detr.sel(time=slice(*baseline)).groupby('time.month').mean('time')
+
+# detrended daily climatology
+is_feb29_L = (rdL_detr.time.dt.month == 2) & (rdL_detr.time.dt.day == 29)
+rdL_detr_noleap = rdL_detr.sel(time=~is_feb29_L).convert_calendar("noleap", dim="time", align_on="date")
+rdL_dclim_d = rdL_detr_noleap.sel(time=slice(*baseline)).groupby('time.dayofyear').mean('time')
+
+dates_clim = pd.date_range("2010-01-01", periods=int(rdL_dclim_d.sizes["dayofyear"]), freq="D")
+rdL_dclim_d = rdL_dclim_d.assign_coords(date=("dayofyear", dates_clim))
+
+# detrended anomalies
+rdL_danom_d = rdL_detr_noleap.groupby('time.dayofyear') - rdL_dclim_d
+rdL_danom_d = rdL_danom_d.assign_coords(date=("time", to_datetime64_from_cftime(rdL_danom_d["time"])))
+
+rdL_danom_m = rdL_detr.resample(time='MS').mean().groupby('time.month') - rdL_dclim_m
+
+
+# Timeseries of River Discharge at the two reference points
+
+# Plot
+fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(12, 8), sharex=True)
+
+# --- Estuary ---
+ax1.plot(rd_estuary.time, rd_estuary, linestyle='-', lw = 1, label = 'Raw')
+ax1.plot(rdE_trend['time'], rdE_trend, linewidth=2, label="Trend", color="tab:orange")
+ax1.set_title("Raw time series - Discharge of Volta River at the Mouth (0.667°E, 5.77°N)")
+ax1.set_ylabel("Discharge (m³/s)")  
+ax1.set_xlabel("Year")
+ax1.grid(True)
+# vertical lines: one per month
+ax1.grid(True, axis='x', which='major', alpha=0.5)
+# a few horizontal lines (major only)
+ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend()
+
+# --- Volta Lake ---
+ax2.plot(rd_lake.time, rd_lake, linestyle='-', lw = 1, color='purple', label = 'Raw')
+ax2.plot(rdL_trend['time'], rdL_trend, linewidth=2, label="Trend", color="tab:orange")
+ax2.set_title("Raw time series - River Discharge downstream the Volta Lake (0.087°E, 6.267°N)")
+ax2.set_ylabel("Discharge (m³/s)")  
+ax2.set_xlabel("Year")
+# vertical lines: one per month
+ax2.grid(True, axis='x', which='major', alpha=0.5)
+# a few horizontal lines (major only)
+ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax2.legend()
+
+import matplotlib.dates as mdates
+
+# one vertical grid line per year
+year_loc = mdates.YearLocator()              # every year
+year_fmt = mdates.DateFormatter('%Y')
+
+for ax in (ax1, ax2):
+    ax.xaxis.set_major_locator(year_loc)
+    ax.xaxis.set_major_formatter(year_fmt)
+    ax.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+
+plt.show()
+
+# -----------------------------------------------
+# Daily vs Monthly detrended climatology plot
+# -----------------------------------------------
+
+import matplotlib.dates as mdates  # <-- missing import
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(12, 8), sharex=True)
+
+# reference year (already non-leap)
+year = pd.to_datetime(rdE_dclim_d['date'].values[0]).year
+month_dates = pd.date_range(f"{year}-01-01", periods=12, freq="MS")
+
+# --- Estuary (detrended) ---
+ax1.plot(rdE_dclim_d['date'].values, rdE_dclim_d.values, lw=1, label="Detrended daily mean 2010–2021")
+ax1.plot(month_dates, rdE_dclim_m.values, marker='o', linestyle='--', label="Detrended monthly mean 2010–2021")
+
+ax1.xaxis.set_major_locator(mdates.MonthLocator())
+ax1.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax1.set_xlim(pd.Timestamp(f"{year}-01-01"), pd.Timestamp(f"{year}-12-31"))
+ax1.set_title("Detrended Discharge Climatology at the Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Discharge (m³/s)")
+ax1.set_xlabel("Month")
+ax1.grid(True, axis='x', alpha=0.5)
+ax1.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax1.legend(frameon=False)
+
+# --- Volta Lake (detrended) ---
+ax2.plot(rdL_dclim_d['date'].values, rdL_dclim_d.values, color='tab:purple', lw=1, label="Detrended daily mean 2010–2021")
+ax2.plot(month_dates, rdL_dclim_m.values, marker='o', linestyle='--', color='tab:blue', label="Detrended monthly mean 2010–2021")
+
+ax2.xaxis.set_major_locator(mdates.MonthLocator())
+ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax2.set_xlim(pd.Timestamp(f"{year}-01-01"), pd.Timestamp(f"{year}-12-31"))
+ax2.set_title("Detrended Discharge Climatology downstream the Volta Lake (0.087°E, 6.267°N)")
+ax2.set_ylabel("Discharge (m³/s)")
+ax2.set_xlabel("Month")
+ax2.grid(True, axis='x', alpha=0.5)
+ax2.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax2.legend(frameon=False)
+
+plt.tight_layout()
+plt.show()
+
+# --------------------------------------
+# Daily vs Monthly detrended anomalies 
+# --------------------------------------
+# Unique years + one extra for right edge
+years = np.unique(rdE_danom_d['time.year'].values)
+years_ext = np.append(years, years[-1] + 1)
+year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
+
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(12, 9), sharex=True)
+
+# --- Estuary ---
+ax1.plot(rdE_danom_m['time'], rdE_danom_m.values, color='b', linewidth=1.3, linestyle = '--', label = 'Detrended monthly anomaly')
+ax1.plot(rdE_danom_d['date'].values, rdE_danom_d.values, linewidth=1, color= 'r', label = 'Detrended daily anomaly')
+ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax1.set_title("Detrended Discharge Anomaly at the Estuary (0.667°E, 5.77°N)")
+ax1.set_ylabel("Anomaly (m³/s)")
 ax1.set_xticks(year_ticks)
 ax1.set_xticklabels(years_ext)
 ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
 ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax1.legend(title="Month")
-  # --- Lake ---
-for i, m in enumerate(sel_months):
-    dataL = rdL_anom.sel(time=rdL_anom['time.month'] == m)
-    ax2.plot(dataL['time'], dataL, color=colors[i], lw=1.2, label=months[m-1])
-ax2.axhline(0, color="k", lw=0.8, alpha=0.6)
-ax2.set_title("River Discharge Anomalies - Lake (0.117°E, 6.50°N)")
-ax2.set_ylabel("Discharge Anomaly (m³/s)")
+ax1.legend()
+
+# --- Volta Lake ---
+ax2.plot(rdL_danom_m['time'], rdL_danom_m.values, color='purple', linewidth=1.3, linestyle = '--', label = 'Detrended monthly anomaly')
+ax2.plot(rdL_danom_d['date'].values, rdL_danom_d.values, linewidth=1, color= 'orange', label = 'Detrended daily anomaly')
+ax2.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax2.set_title("Detrended Discharge Anomaly downstream the Volta Lake (0.087°E, 6.267°N)")
+ax2.set_ylabel("Anomaly (m³/s)")
 ax2.set_xlabel("Year")
 ax2.set_xticks(year_ticks)
 ax2.set_xticklabels(years_ext)
 ax2.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
 ax2.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax2.legend(title="Month")
+ax2.legend()
 
 plt.tight_layout()
 plt.show()
-
-# Detrended anomaly
-# ---------- CONFIGURATION ----------
-baseline = ('2010-01-01','2021-12-31')
-series = [
-    ("Volta River at the Mouth", rd_estuary),
-    ("Volta Lake",              rd_lake),
-]
-
-# ---------- PIPELINE ----------
-def prep_series(xarr, baseline=baseline, deg=1, resample='MS'):
-    """Compute detrended monthly anomalies, climatology, and fitted trend."""
-    rd_danom, rd_dclim, rd_trend = anomd(xarr, baseline=baseline, deg=deg)
-    rd_danom_m = rd_danom.resample(time=resample).mean()
-    return {"raw": xarr, "rd_danom_m": rd_danom_m, "rd_dclim": rd_dclim, "rd_trend": rd_trend}
-
-def plot_raw_with_trend(name, raw, rd_trend):
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(raw['time'], raw, linewidth=1, label="Raw")
-    ax.plot(rd_trend['time'], rd_trend, linewidth=2, label="Trend")
-    ax.set_title(f"{name} — Raw Discharge with Fitted Trend")
-    ax.set_ylabel("Discharge (m³/s)"); ax.set_xlabel("Year")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    ax.legend()
-    plt.tight_layout(); plt.show()
-
-def plot_anomaly(name, rd_danom_m):
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.axhline(0, linewidth=1)
-    ax.plot(rd_danom_m['time'], rd_danom_m, linewidth=1, color = 'r')
-    ax.set_title(f"{name} — Detrended Monthly Anomaly")
-    ax.set_ylabel("Anomaly (m³/s)"); ax.set_xlabel("Year")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    plt.tight_layout(); plt.show()
-
-def plot_climatology(name, rd_dclim):
-    fig, ax = plt.subplots(figsize=(10, 3.5))
-    ax.plot(rd_dclim['month'], rd_dclim, marker='o')
-    ax.set_title(f"{name} — Monthly Climatology (Detrended Base)")
-    ax.set_xticks(range(1,13))
-    ax.set_xticklabels([month_abbr[m] for m in range(1, 13)])
-    ax.set_xlabel("Month"); ax.set_ylabel("Discharge (m³/s)")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    plt.tight_layout(); plt.show()
-
-# ---------- RUN FOR ALL SERIES ----------
-results = {name: prep_series(xarr, baseline=baseline) for name, xarr in series}
-
-for name, r in results.items():
-    plot_raw_with_trend(name, r["raw"], r["rd_trend"])
-    plot_anomaly(name, r["rd_danom_m"])
-    plot_climatology(name, r["rd_dclim"])
-
-rdE_danom_m = results["Volta River at the Mouth"]["rd_danom_m"]   # DataArray (time)
-rdE_dclim   = results["Volta River at the Mouth"]["rd_dclim"]     # DataArray (month)
-rdE_trend   = results["Volta River at the Mouth"]["rd_trend"]
-rdE_raw     = results["Volta River at the Mouth"]["raw"]
-
-rdL_danom_m = results["Volta Lake"]["rd_danom_m"]
-rdL_dclim   = results["Volta Lake"]["rd_dclim"]
-rdL_trend   = results["Volta Lake"]["rd_trend"]
-rdL_raw     = results["Volta Lake"]["raw"]
 
 
 

@@ -755,8 +755,9 @@ for ax in (ax1, ax2):
 
 plt.tight_layout(); plt.show()
 
-
-### PDF ###
+####################
+### PDF analysis ###
+####################
 # Compute and plot the histograms to see the PDF of the rd and wl raw indeces
 rdv = rd.dropna().to_numpy()
 wlv = wl.dropna().to_numpy()

@@ -1,6 +1,8 @@
 ##### Time variability #####
 
+#########################
 #### River Discharge ####
+#########################
 nodata = 9999.0  # GloFAS missing value
   # mask nodata first
 glofas_masked = glofas_sorted.where(glofas_sorted.dis24 != nodata)
@@ -439,59 +441,104 @@ plt.tight_layout()
 plt.show()
 
 
-
-#### Water Level ####
+####################
+#### Water Level ###
+####################
 ## Temporal variability of the 'raw' climatic index 
-# Timeseries of Water Level at the two reference points
-  # Plot
+# Timeseries of Water Level 
+# Plot
 fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
-ax1.plot(wl_estuary.time, wl_estuary, linestyle='-', label = 'Daily WL')
-  # Monthly mean values at the two locations (E = estuary, L = lake)
+ax1.plot(wl_estuary.time, wl_estuary, linestyle='-', lw=0.7, label = 'Daily WL')
+# Monthly mean values at the two locations (E = estuary, L = lake)
 wl_mon = wl_estuary.resample(time='MS').mean()   # 'MS' = Month Start
+
 ax1.plot(wl_mon.time, wl_mon, linestyle = '-', color = 'r', label = 'Monthly mean')
 ax1.set_title("Raw time series - Water Level at Volta Estuary (0.667°E, 5.77°N)")
 ax1.set_ylabel("Water level (m)")  
 ax1.set_xlabel("Year")
 ax1.grid(True)
 ax1.legend()
-  # vertical lines: one per month
+# vertical lines: one per month
 ax1.grid(True, axis='x', which='major', alpha=0.5)
-  # a few horizontal lines (major only)
+# a few horizontal lines (major only)
 ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+
+#plt.tight_layout()
 plt.show()
 
+# -----------------------------
+# Daily climatology and anomaly
+# -----------------------------
+  # drop Feb 29 to get a 365-day climatology
+is_feb29w = (wl_estuary.time.dt.month == 2) & (wl_estuary.time.dt.day == 29)
+wl_noleap = wl_estuary.sel(time=~is_feb29w)
+wl_noleap = wl_noleap.convert_calendar("noleap", dim="time", align_on="date")
+  # --- Daily climatology (2010–2021) ---
+wl_dailyclim = wl_noleap.groupby('time.dayofyear').mean('time')
+wl_dailyclim = wl_noleap.groupby('time.dayofyear').mean('time')
+dates_climw = pd.date_range("2010-01-01", periods=int(wl_dailyclim.sizes["dayofyear"]), freq="D")
+wl_dailyclim = wl_dailyclim.assign_coords(date=("dayofyear", dates_climw))
+  # --- Daily anomalies (value - daily climatology) ---
+def to_datetime64_from_cftime(tcoord):
+    return pd.to_datetime([f"{t.year:04d}-{t.month:02d}-{t.day:02d}" for t in tcoord.values])
+wl_dailyanom = wl_noleap.groupby('time.dayofyear') - wl_dailyclim
+wl_dailyanom = wl_dailyanom.assign_coords(date=("time", to_datetime64_from_cftime(wl_dailyanom["time"])))
+
+# -------------------------------
+# Monthly climatology and anomaly
+# -------------------------------
+  # Monthly mean values at the two locations (E = estuary, L = lake)
+wl_mon = wl_estuary.resample(time='MS').mean()   # 'MS' = Month Start
+  # Monthly climatology (average over all years for each month)
+wl_clim = wl_mon.groupby('time.month').mean('time')   # dims: month
+  # Anomalies = monthly mean - climatology
+wl_anom = wl_mon.groupby('time.month') - wl_clim       # dims: time
+
+
 # --------------------------------------
-# Monthly climatology of water level
+# Daily and monthly climatology plot WL
 # --------------------------------------
 months = list(calendar.month_name)[1:]
-fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
-ax1.plot(wl_clim['month'].values, wl_clim.values, marker='o', label = 'Mean 2010-2021')
-ax1.set_title("Monthly Water Level Climatology at the estuary (0.667°E, 5.77°N)")
-ax1.set_ylabel("Water level (m)")
-ax1.set_xlabel("Month", labelpad=8)
-ax1.set_xticks(range(1, 13))
-ax1.set_xticklabels(months)
-  # vertical lines: one per month
-ax1.grid(True, axis='x', which='major', alpha=0.5)
-  # a few horizontal lines (major only)
-ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax1.legend(loc='upper right', frameon=False)
+# reference year (already non-leap)
+year = pd.to_datetime(wl_dailyclim['date'].values[0]).year
+# dates for the monthly (start the month in the same year as daily)
+month_dates = pd.date_range(f"{year}-01-01", periods=12, freq="MS")
+
+fig, ax = plt.subplots(figsize=(12,4))
+ax.plot(wl_dailyclim['date'].values, wl_dailyclim.values,  
+        ms=2, lw=0.9, label = 'Daily mean 2010-2021')
+ax.plot(month_dates, wl_clim.values, marker='o', 
+         lw=1, color= 'r', label = 'Monthly mean 2010-2021')
+ax.set_title("Daily Water Level Climatology at Volta Estuary (0.667°E, 5.77°N)")
+ax.set_ylabel("Water level (m)")
+ax.set_xlabel("Month")
+ax.grid(True, axis='x', alpha=0.5)
+ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax.legend()
+
+month = pd.date_range('2010-01-01', '2011-01-01', freq='MS')[:-1]
+ax.set_xticks(month)
+ax.set_xticklabels(months)
+ax.legend(loc='upper right', frameon=True)
 
 plt.tight_layout()
 plt.show()
+
 
 # --------------------------------------
 # Monthly mean water level
 # --------------------------------------
 years = sorted(set(rd_estuary['time'].dt.year.values))
+
 fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
 cmap = plt.get_cmap('tab20')
 colors = [cmap(i % cmap.N) for i in range(len(years))]
 
 for i, (y1, yy1) in enumerate(wl_mon.groupby('time.year')):
     # yy is the monthly series for that year (up to 12 points)
-    ax1.plot(yy1['time.month'].values, yy1.values, label=str(y1), color=colors[i])
-ax1.plot(wl_clim['month'], wl_clim.values, color='black', label='Climatology', linewidth=2)
+    ax1.plot(yy1['time.month'].values, yy1.values, label=str(y1), lw=1.3, color=colors[i])
+
+ax1.plot(wl_clim['month'], wl_clim.values, color='black', label='Climatology', linewidth=2.2)
 ax1.set_title("Sea Water Level at the estuary (0.667°E, 5.77°N) - Monthly mean")
 ax1.set_ylabel("Water level (m)")
 ax1.set_xlabel("Month", labelpad=8)
@@ -506,110 +553,151 @@ ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize
 plt.tight_layout()
 plt.show()
 
-# --------------------------------------
-# Monthly water level anomaly
-# --------------------------------------
-  # get unique years from anomalies
+
+# ----------------------------------------------------------
+# Monthly and daily water level anomaly without detrending 
+# ----------------------------------------------------------
+# get unique years from anomalies
 years = np.unique(wl_anom['time.year'].values)
-  # add one extra year so the grid reaches the end of the plot
+
+# add one extra year so the grid reaches the end of the plot
 years_ext = np.append(years, years[-1] + 1)
 year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
+
 fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
-  # --- Estuary ---
-ax1.plot(wl_anom['time'], wl_anom.values, color='r', linewidth=1)
+
+# --- Estuary ---
+ax1.plot(wl_dailyanom['date'].values, wl_dailyanom.values, linewidth=0.7, color= 'r', label = 'Daily anomaly')
+ax1.plot(wl_anom['time'], wl_anom.values, color='blue', linewidth=1.5, label = 'Monthly anomaly')
 ax1.axhline(0, color='k', linewidth=0.8, alpha=0.6)  # baseline
-ax1.set_title("Water Level Monthly Anomaly at the Estuary (0.667°E, 5.77°N)")
+ax1.set_title("Water Level Anomaly at the Estuary (0.667°E, 5.77°N)")
 ax1.set_ylabel("Anomaly (m)")
 ax1.set_xticks(year_ticks)
 ax1.set_xticklabels(years_ext)  # show all year numbers including the last
 ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
 ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax1.legend()
 
 plt.show()
 
-# Water level anomalies for Autumn months
-sel_months = [9, 10, 11, 12]  
-colors = ["r", "g", "b", "orange"]  
-fig, ax1 = plt.subplots(figsize=(12, 5), sharex=True)
-# --- Estuary ---
-for i, m in enumerate(sel_months):
-    dataE = wl_anom.sel(time=wl_anom['time.month'] == m)
-    ax1.plot(dataE['time'], dataE, color=colors[i], lw=1.2, label=months[m-1])
-ax1.axhline(0, color="k", lw=0.8, alpha=0.6)
-ax1.set_title("Water level Anomalies - Estuary (0.667°E, 5.77°N)")
-ax1.set_ylabel("Water level Anomaly (m³/s)")
-ax1.set_xticks(year_ticks)
-ax1.set_xticklabels(years_ext)
-ax1.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
-ax1.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
-ax1.legend(title="Month")
+
+# --------------------------------------
+# Detrended climatologies and anomalies
+# --------------------------------------
+baseline = ('2010-01-01','2021-12-31')
+
+# helper per assegnare una coord 'date' da cftime -> datetime64
+def to_datetime64_from_cftime(tcoord):
+    import pandas as pd
+    return pd.to_datetime([f"{t.year:04d}-{t.month:02d}-{t.day:02d}" for t in tcoord.values])
+
+# trend and detrended time series
+wl_danom_from_anomd, wl_clim_from_anomd, wl_trend = anomd(wl_estuary, baseline=baseline, deg=1)
+wl_detr = wl_estuary - wl_trend.interp(time=wl_estuary['time'])
+
+# detrended monthly climatology
+wl_dclim_m = wl_detr.sel(time=slice(*baseline)).groupby('time.month').mean('time')
+
+# detrended daily climatology
+is_feb29_w = (wl_detr.time.dt.month == 2) & (wl_detr.time.dt.day == 29)
+wl_detr_noleap = wl_detr.sel(time=~is_feb29_E).convert_calendar("noleap", dim="time", align_on="date")
+wl_dclim_d = wl_detr_noleap.sel(time=slice(*baseline)).groupby('time.dayofyear').mean('time')
+
+dates_clim_w = pd.date_range("2010-01-01", periods=int(wl_dclim_d.sizes["dayofyear"]), freq="D")
+wl_dclim_d = wl_dclim_d.assign_coords(date=("dayofyear", dates_clim_w))
+
+# detrended anomalies
+wl_danom_d = wl_detr_noleap.groupby('time.dayofyear') - wl_dclim_d
+wl_danom_d = wl_danom_d.assign_coords(date=("time", to_datetime64_from_cftime(wl_danom_d["time"])))
+
+wl_danom_m = wl_detr.resample(time='MS').mean().groupby('time.month') - wl_dclim_m
+
+#--------------------------------------
+# Timeseries of Water Level with trend
+#--------------------------------------
+# Plot
+fig, ax = plt.subplots(figsize=(12, 5), sharex=True)
+ax.plot(wl_estuary.time, wl_estuary, linestyle='-', lw = 0.7, label = 'Raw')
+ax.plot(wl_mon.time, wl_mon, linestyle = '-', color = 'r', label = 'Monthly mean')
+ax.plot(wl_trend['time'], wl_trend, linewidth=2, label="Trend", color="tab:orange")
+ax.set_title("Raw time series - Sea Water Level at Volta Estuary (0.667°E, 5.77°N)")
+ax.set_ylabel("Water level (m)")  
+ax.set_xlabel("Year")
+ax.grid(True)
+# vertical lines: one per month
+ax.grid(True, axis='x', which='major', alpha=0.5)
+# a few horizontal lines (major only)
+ax.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax.legend()
+
+# one vertical grid line per year
+year_loc = mdates.YearLocator()              # every year
+year_fmt = mdates.DateFormatter('%Y')
+
+ax.xaxis.set_major_locator(year_loc)
+ax.xaxis.set_major_formatter(year_fmt)
+ax.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+
+plt.show()
+
+# -----------------------------------------------
+# Daily vs Monthly detrended climatology plot
+# -----------------------------------------------
+fig, ax = plt.subplots(figsize=(12, 5), sharex=True)
+
+# reference year (already non-leap)
+year = pd.to_datetime(wl_dclim_d['date'].values[0]).year
+month_dates = pd.date_range(f"{year}-01-01", periods=12, freq="MS")
+
+ax.plot(wl_dclim_d['date'].values, wl_dclim_d.values, lw=1, label="Detrended daily mean 2010–2021")
+ax.plot(month_dates, wl_dclim_m.values, marker='o', color= 'r', label="Detrended monthly mean 2010–2021")
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax.set_title("Detrended Water Level Climatology at the Estuary (0.667°E, 5.77°N)")
+ax.set_ylabel("Water level (m)")
+ax.set_xlabel("Month")
+month = pd.date_range('2010-01-01', '2011-01-01', freq='MS')[:-1]
+ax.set_xticks(month)
+ax.set_xticklabels(months)
+ax.grid(True, axis='x', alpha=0.5)
+ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+ax.legend(loc='upper right', frameon=True)
 
 plt.tight_layout()
 plt.show()
 
-# Detrended anomaly
-# Estuary
-We_anom, We_clim = anom(wl_estuary, baseline=('2010-01-01','2021-12-31'))
-We_anom_d, We_clim, We_trend = anomd(wl_estuary, baseline=('2010-01-01','2021-12-31')) # detrended anomaly
-We_anom_m = We_anom_d.resample(time='MS').mean()   # monthly-mean anomaly from daily
+# ----------------------------------------
+# Daily vs Monthly detrended anomaly plot 
+# ----------------------------------------
+# Unique years + one extra for right edge
+years = np.unique(rdE_danom_d['time.year'].values)
+years_ext = np.append(years, years[-1] + 1)
+year_ticks = [np.datetime64(f"{y}-01-01") for y in years_ext]
 
-# ---------- CONFIGURATION ----------
-baseline = ('2010-01-01','2021-12-31')
-series = [
-    ("Water Level at the River Mouth", wl_estuary)
-]
+fig, ax = plt.subplots(figsize=(12, 5), sharex=True)
 
-# ---------- PIPELINE ----------
-def prep_series(xarr, baseline=baseline, deg=1, resample='MS'):
-    """Compute detrended monthly anomalies, climatology, and fitted trend."""
-    wl_danom, wl_dclim, wl_trend = anomd(xarr, baseline=baseline, deg=deg)
-    wl_danom_m = wl_danom.resample(time=resample).mean()
-    return {"raw": xarr, "wl_danom_m": wl_danom_m, "wl_dclim": wl_dclim, "wl_trend": wl_trend}
+ax.plot(wl_danom_m['time'].values, wl_danom_m.values, lw=1.3, color = 'b', label="Detrended monthly anomaly")
+ax.plot(wl_danom_d['time'].values, wl_danom_d.values, lw = 1, color = 'r', label="Detrended daily anomaly")
+ax.plot(wl_danom_m['time'].values, wl_danom_m.values, lw=1.3, color = 'b')
+ax.axhline(0, color='k', linewidth=0.8, alpha=0.6)
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+ax.set_title("Detrended Water Level Climatology at the Estuary (0.667°E, 5.77°N)")
+ax.set_ylabel("Anomaly (m)")
+ax.set_xlabel("Month")
+ax.set_xticks(year_ticks)
+ax.set_xticklabels(years_ext)
+ax.grid(True, axis='x', which='major', linestyle='--', alpha=0.5)
+ax.grid(True, axis='y', which='major', linestyle='--', alpha=0.4)
+ax.legend()
 
-def plot_raw_with_trend(name, raw, wl_trend):
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(raw['time'], raw, linewidth=1, label="Raw daily series")
-    ax.plot(wl_mon['time'], wl_mon, color = 'r', label = 'Monthly mean')
-    ax.plot(wl_trend['time'], wl_trend, linewidth=2, label="Trend")
-    ax.set_title(f"{name} — Raw Discharge with Fitted Trend")
-    ax.set_ylabel("Water level (m)"); ax.set_xlabel("Year")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    ax.legend()
-    plt.tight_layout(); plt.show()
-
-def plot_anomaly(name, wl_danom_m):
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.axhline(0, linewidth=1)
-    ax.plot(wl_danom_m['time'], wl_danom_m, linewidth=1, color = 'r')
-    ax.set_title(f"{name} — Detrended Monthly Anomaly")
-    ax.set_ylabel("Anomaly (m)"); ax.set_xlabel("Year")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    plt.tight_layout(); plt.show()
-
-def plot_climatology(name, clim):
-    fig, ax = plt.subplots(figsize=(10, 3.5))
-    ax.plot(clim['month'], clim, marker='o')
-    ax.set_title(f"{name} — Monthly Climatology (Detrended Base)")
-    ax.set_xticks(range(1,13))
-    ax.set_xticklabels([month_abbr[m] for m in range(1, 13)])
-    ax.set_xlabel("Month"); ax.set_ylabel("Water level (m)")
-    ax.grid(True, which='major', linestyle='--', alpha=0.4)
-    plt.tight_layout(); plt.show()
-
-# ---------- RUN FOR ALL SERIES ----------
-results = {name: prep_series(xarr, baseline=baseline) for name, xarr in series}
-
-for name, r in results.items():
-    plot_raw_with_trend(name, r["raw"], r["wl_trend"])
-    plot_anomaly(name, r["wl_danom_m"])
-    plot_climatology(name, r["wl_dclim"])
-
-wl_danom = results[name]["wl_danom_m"]
-wl_dclim   = results[name]["wl_dclim"] 
+plt.tight_layout()
+plt.show()
 
 
-
+######################
 ### Power spectrum ###
+######################
 def fft_spectrum_xr(da: xr.DataArray, pad_factor=4, window='hann'):
     """
     One-sided FFT spectrum for a 1D DataArray with a 'time' coord.

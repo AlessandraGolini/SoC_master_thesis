@@ -1,17 +1,31 @@
+# Compound flooding analysis
+## Extreme events
+### Univariate extreme analysis
+#### Block Maxima approach
+
+When analysing maximum river discharge or heighest water level in a given time period, it is common to model not just the extremes observed, but to quantify probabilities of rare extremes. A common approach to practical extreme value analysis is to use the Generalized Extreme Value Distribution (GEV) to fit to the observed extreme values. In fact, extreme value theory provides the statistical foundation for this task. A central result of this theory, the Fisher–Tippett–Gnedenko theorem, demonstrates that, for a sequence of independent random variables having a common distribution function, the distribution of the normalized largest value over a fixed period of time (known as the block maxima), converges to a family of distributions known as GEV distribution (Coles, 2001, §3). 
+
+In hydrology, the Block Maxima (BM) approach is widely applied. This method consists of dividing the observation record into non-overlapping periods of equal length and restricts attention to the maximum observation in each block. The resulting series of annual maxima is then fitted with the GEV distribution, allowing the estimation for return levels, defined as quantiles corresponding to specidic return periods. In this way, observed extremes are associated with probabilities, and extrapolation beyond the observed record becomes possible. It should be said, however, that while GEV distribution provides the theoretical foundation for modeling block maxima, its derivation assumes underlying stationarity. Coles (2001, §6) emphasizes that environmental processes rarely satisfy this assumption due to seasonal cycles and long-term trends. Therefore, for non-stationary sequencies it's necessary either remove such structure (e.g. through detrended anomalies) or incorporate it explicitly in a non-stationary GEV model with time- or season-dependent parameters.
+
+In practice, the data here are divided into annual blocks, from which only the annual maximum value is considered, creating a shorter series of 12 values for 2010-2021. The GEV distribution is then fitted to these annual maxima, with shape, location and scale parameters estimated through maxima likelihood estimation (MLE). Then, the return periods are computed as the reciprocal of exceedance probability, T = 1/p. The corresponding return level q = 1 - 1/T is the quantile of the fitted GEV distribution that is exceeded with probability 1/T in any given year (Coles, 2001, §3.2).
+
+In the code, once the GEV parameters are estimated, each observed annual maximum is assigned to an *empirical return period* using the Weibull plotting position: Temp = (n+1)/m, where n is the number of annual maxima and m is the rank of the maximum (from the largest = 1, to the smallest = n). Ath the same time, the fitted GEV is used to compute the theoretical return level curve across a smooth grid of return periods up to a safe maximum (≈3× record length).
+
+Lastly, the comparison of the empirical estimates from data (points) with the fitted model (curve) is here paralelly proposed for both the raw time series and the detrended anomalies.
+
 <img width="1189" height="397" alt="immagine" src="https://github.com/user-attachments/assets/f50d06d8-8d56-4b1e-84b5-c5ea4385f4ec" />
 <img width="1189" height="397" alt="immagine" src="https://github.com/user-attachments/assets/725e768b-a0dc-49ec-be05-3161a13310c4" />
 These two sets of plots illustrate the difference between fitting a GEV model to raw non-stationary data versus to detrended anomalies.
 
-RIVER DICHARGE: 
-The return levels explode (10^6, 10^8, 10^9) → this is a classic symptom of unstable GEV fits due to non-stationarity + very few data points (12 annual maxima).
-Computing the bootstrap CIs it becomes evident that they are absurdly wide (e.g., 4,472 – 2.3×10^7 for T=10), confirming the fit is unreliable.
-This output is showing you that the GEV assumption is broken for the raw series.
+The first row illustrates the empirical return levels for the raw time series of river discharge (to the left) and water level (to the right). The first panel, top row to the left, shows that the empirical points (blue dots), representing the return level assigned to each observed annual maximum usign the Weibull plotting position, are clustered near the bottom of the graph. Instead, the GV fit (red curve) suddenly shoots up almost vertically for return periods beyond ~20 years. The explosion of return levels is a symptom of unstable GEV fits due to non-stationarity, and of short BM series (12 annual maxima). This means that these extrapolations are not realistic because the model is trying to force-fit a heavy tail with too little data.
 
-For detrended anomaly, the central return levels look plausible (2-yr ≈ 2000 m³/s, 30-yr ≈ 19,000 m³/s), but the bootstrap CIs are still enormous: from ~200 up to 10^12 in the 30-yr case!
-This means that even after detrending, the very limited length of available data (with only 12 data points) causes the parameter estimates, especially the shape ξ, to be very unstable.
+On the other hand, the top right panel shows the return levels for raw water level. This looks much more stable: the red curve traks the empirical points quite well, and extrapolates smoothly. In fact, return levels increase gradually, which is physically reasonable, since water level extremes usually have natural limits (e.g., coastal geometry, hydraulic controls, climate variability). For example, a 2-year return period corresponds to a small exceedance (close to the average annual maximum). A 10-year return period is a bit higher, while a 30-year return period is higher still, but the increase is progressive, and not explosive. This physical reasonability suggests that water level series is closer to stationary, so the GEV fit works better than for river diacharge raw data. However, the empirical values of return level for raw water level clearly deviate from the GEV fit curve, suggesting that the assumption of stationarity, at the basis of the theory of extreme values, is not respected. This behavior could be attributed to the presence of trends or seasonality in the time series, which compromise the quality of the fit. For this reason , it could be convinient to consider the detrended anomalies.
 
-WATER LEVEL:
-On the other hand, return levels for water level increase smoothly (0.09 → 0.35 m across 2–30 years) and bootstrap intervals are tight (reasonable stability).
-This is much more realistic and indicates the water level series is closer to stationary, so the GEV fit works.
+In fact, in the second row it can be seen that detrended anomalies give a much more reasonable fit, both for river discharge and water level. Moreover, for river discharge detrended anomalies, not only the red curve follows the empirical points closely, but also the extrapolation to higher return periods looks stable. This suggests that the removal of long-term non-stationary components through detrending improves the model performance and yields results more consistent with the theoretical assumptions of extreme value analysis (Coles, 2001, §6).
 
-Return levels for detrended anomalies of water level rise smoothly (0.035 → 0.16 m over 2–30 years), and CIs are relatively narrow, especially compared to discharge. This looks reliable and interpretable.
+
+In any case, it is relevant that the block maxima series is very short, with only 12 years of data. This implies that the Maximum Likelihood Estimation method to estiamte the GEV parameters is very unstable, which is evident in the Volta Estuary River dicharge Return Levels for raw data: here the GEV curve explodes upwards very fast, wich is an unrealistic extrapolation. Therefore, for short records such as the one considered, it is convinent to use Probability Weighted Moments (or L-moments), which is a much more robust method with short hydrological recors, and which produces more stable and realistic return levels.
+
+<img width="1189" height="397" alt="immagine" src="https://github.com/user-attachments/assets/61368b80-29f5-44f0-aa4f-13e56dc0fea9" />
+<img width="1189" height="397" alt="immagine" src="https://github.com/user-attachments/assets/4c7dd0cb-ab49-4cb8-85e6-db76141e586e" />
+

@@ -49,6 +49,6 @@ Once independent exceedances are extracted, the excesses are fitted to the GPD u
 
 In hydrological and coastal applications, where extremes are often seasonally modulated, a stationary threshold may not always be adequate. In such cases, time-varying thresholds—for example, rolling percentiles computed within a moving seasonal window or thresholds estimated by quantile regression—are recommended to account for changes in exceedance frequency over the seasonal cycle (Eastoe & Tawn, 2009; Northrop & Coleman, 2014). However, in this study, we first apply stationary thresholds to the detrended anomalies and only consider seasonally varying thresholds if diagnostic checks (e.g., monthly exceedance rates, parameter instability) suggest their necessity.
 
-Do you want me to als
+
 
 

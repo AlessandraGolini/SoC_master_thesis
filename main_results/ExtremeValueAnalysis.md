@@ -429,6 +429,172 @@ This code sets up a block bootstrap: a procedure adapted for serially dependent 
 
 3) **Multivariate and joint probability modeling**
 
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>family</th>
+      <th>loglik</th>
+      <th>AIC</th>
+      <th>BIC</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Gaussian</td>
+      <td>-8.881784e-14</td>
+      <td>2.000000</td>
+      <td>7.382124</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Student-t(df=40)</td>
+      <td>-5.861207e+00</td>
+      <td>15.722413</td>
+      <td>26.486662</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Frank</td>
+      <td>-1.818601e+02</td>
+      <td>365.720242</td>
+      <td>371.102367</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+[best copula] Gaussian
+RD: u=6.6e+03, xi=-0.132, sigma=2.79e+03, n_exc=220, daily p>u=0.0502
+WL: u=0.084, xi=-0.161, sigma=0.0116, n_exc=219, daily p>u=0.0500
+[AND @ (RD=6.6e+03, WL=0.084)] p=2.508e-03 → T≈398.73 yrs  (u=0.950, v=0.950, C(u,v)=0.902, copula=Gaussian)
+
+<Figure size 640x480 with 1 Axes><img width="629" height="470" alt="image" src="https://github.com/user-attachments/assets/774e839a-f672-4a37-a344-7e601ab3081f" />
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>target</th>
+      <th>RD</th>
+      <th>WL</th>
+      <th>p_AND</th>
+      <th>T_years</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>q95 per-margin</td>
+      <td>6597.639062</td>
+      <td>0.0840</td>
+      <td>0.002508</td>
+      <td>398.727460</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>q98 per-margin</td>
+      <td>8814.505937</td>
+      <td>0.0941</td>
+      <td>0.000423</td>
+      <td>2366.487977</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>family</th>
+      <th>loglik</th>
+      <th>AIC</th>
+      <th>BIC</th>
+      <th>info</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Gaussian</td>
+      <td>-4.252154e-14</td>
+      <td>2.000000</td>
+      <td>6.726233</td>
+      <td>{'rho': [[1.0, 0.0], [0.0, 1.0]]}</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Student-t</td>
+      <td>-1.270292e+00</td>
+      <td>6.540583</td>
+      <td>15.993050</td>
+      <td>{'rho': [[1.0, 0.0], [0.0, 1.0]], 'df': 40}</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>BB1</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>BB1 unavailable (pip install copulae)</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<img width="669" height="530" alt="image" src="https://github.com/user-attachments/assets/818d9667-c157-4e21-b1eb-75cb473a5dd4" />
+<img width="669" height="530" alt="image" src="https://github.com/user-attachments/assets/6a1b675f-85b0-4eb0-8cf9-1b634dd0558b" />
+[notes]
+• Marginals: semi-parametric (empirical below 95th pct; POT-GPD above).
+• Dependence fitted on union exceedances (q_dep=0.90) to focus on the tail.
+• BB1 fit uses copulae (method='mpl'); if unavailable, only Gaussian & Student-t are used.
+• Joint AND return periods are capped to 50 years in the summaries and plots.
+• To enable BB1:  pip install copulae   # then restart kernel and re-run.
+
+
 
 
 

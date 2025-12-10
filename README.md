@@ -17,8 +17,8 @@ Low-lying coastal areas such as the Ghanaian coasts are increasingly exposed to 
 
 **Methods**
 The "script" folder contains the reproducible code for the Compound Flooding Analysis in the Keta Basin (Ghana), with the following steps:
-    - Phase I - Data acquisition, preprocessing, and exploratory analysis.
-    - Phase II – Characterisation of Extremes and Compound Flooding
-          - Univariate Extreme Value Analysis, through Block Maxima and Peaks Over Threshold approaches;
-          - Bivariate Extreme Value Analysis.
+- Phase I - Data acquisition, preprocessing, and exploratory analysis.
+- Phase II – Characterisation of Extremes and Compound Flooding
+  - Univariate Extreme Value Analysis, through Block Maxima and Peaks Over Threshold approaches;
+  - Bivariate Extreme Value Analysis.
 
